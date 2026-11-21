@@ -1,0 +1,12 @@
+/**
+ * Styles for block_quickcards.
+ */
+
+.block_quickcards .block-quickcards-content .quickcards-deck-list .list-group-item {
+    background: transparent;
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+.block_quickcards .block-quickcards-content .alert {
+    font-size: 0.9rem;
+}

@@ -17,24 +17,27 @@
 {{!
     @template block_quickcards/block_content
 
-    QuickCards block overview and review status.
+    QuickCards block overview, review status, and quick-add card feature.
 
     Classes required for JS:
     * none
 
     Context variables required for this template:
+    * uniqid: string
     * iscourse: bool
+    * coursename: string
     * hasdue: bool
     * totaldue: int
     * totalcards: int
     * hasdecks: bool
     * decks: array
+    * deckoptions: array
     * mainurl: string
     * hasanydecks: bool
 }}
-<div class="block-quickcards-content">
+<div class="block-quickcards-content" id="block-quickcards-{{uniqid}}">
     {{#hasdue}}
-    <div class="alert alert-warning d-flex align-items-center p-2 mb-3" role="alert">
+    <div class="alert alert-warning d-flex align-items-center p-2 mb-2" role="alert">
         <i class="fa fa-bell me-2" aria-hidden="true"></i>
         <div>
             <strong>{{#str}} duereviews, block_quickcards {{/str}}:</strong>
@@ -43,7 +46,7 @@
     </div>
     {{/hasdue}}
     {{^hasdue}}
-    <div class="alert alert-success d-flex align-items-center p-2 mb-3" role="status">
+    <div class="alert alert-success d-flex align-items-center p-2 mb-2" role="status">
         <i class="fa fa-check-circle me-2" aria-hidden="true"></i>
         <div>
             <small>{{#str}} alldone, block_quickcards {{/str}}</small>
@@ -51,16 +54,28 @@
     </div>
     {{/hasdue}}
 
+    {{#hasanydecks}}
+    <div class="quickcards-actions mb-3">
+        <button type="button" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center"
+                data-action="quickadd-card"
+                data-bs-toggle="modal"
+                data-bs-target="#quickadd-modal-{{uniqid}}">
+            <i class="fa fa-plus me-1" aria-hidden="true"></i>
+            <span>{{#str}} quickaddcard, block_quickcards {{/str}}</span>
+        </button>
+    </div>
+    {{/hasanydecks}}
+
     {{#hasdecks}}
     <div class="quickcards-deck-list list-group list-group-flush mb-2">
         {{#decks}}
-        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+        <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center" data-deck-id="{{id}}">
             <div class="me-2 text-truncate">
                 <a href="{{deckurl}}" class="fw-bold text-decoration-none text-truncate d-block" title="{{name}}">
                     {{name}}
                 </a>
                 <small class="text-muted">
-                    {{totalcards}} {{#str}} totalcardsstat, block_quickcards {{/str}}
+                    <span class="quickcards-deck-card-count">{{totalcards}}</span> {{#str}} totalcardsstat, block_quickcards {{/str}}
                     {{#hasdue}}
                     &bull; <span class="text-danger fw-bold">{{duecount}} {{#str}} duecardsstat, block_quickcards {{/str}}</span>
                     {{/hasdue}}
@@ -93,4 +108,70 @@
         </a>
     </div>
     {{/hasdecks}}
+
+    {{#hasanydecks}}
+    <!-- Quick Add Modal -->
+    <div class="modal fade" id="quickadd-modal-{{uniqid}}" tabindex="-1" aria-labelledby="quickadd-modal-title-{{uniqid}}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form class="quickadd-card-form" id="quickadd-form-{{uniqid}}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="quickadd-modal-title-{{uniqid}}">
+                            <i class="fa fa-plus-circle text-primary me-2" aria-hidden="true"></i>{{#str}} quickaddcard, block_quickcards {{/str}}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{#str}} closebuttontitle {{/str}}"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger d-none quickadd-error-box mb-3" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label for="quickadd-deck-{{uniqid}}" class="form-label fw-bold">
+                                {{#str}} targetdeck, block_quickcards {{/str}}
+                            </label>
+                            <select class="form-select" id="quickadd-deck-{{uniqid}}" name="deckid" required>
+                                {{#deckoptions}}
+                                <option value="{{id}}" {{#iscurrentcourse}}selected{{/iscurrentcourse}}>
+                                    {{name}}{{#hascourse}} ({{coursename}}){{/hascourse}}
+                                </option>
+                                {{/deckoptions}}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="quickadd-question-{{uniqid}}" class="form-label fw-bold">
+                                {{#str}} cardfront, block_quickcards {{/str}}
+                            </label>
+                            <textarea class="form-control" id="quickadd-question-{{uniqid}}" name="question" rows="3"
+                                      placeholder="{{#str}} cardfront_placeholder, block_quickcards {{/str}}" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="quickadd-answer-{{uniqid}}" class="form-label fw-bold">
+                                {{#str}} cardback, block_quickcards {{/str}}
+                            </label>
+                            <textarea class="form-control" id="quickadd-answer-{{uniqid}}" name="answer" rows="3"
+                                      placeholder="{{#str}} cardback_placeholder, block_quickcards {{/str}}" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            {{#str}} cancel {{/str}}
+                        </button>
+                        <button type="submit" class="btn btn-primary quickadd-submit-btn">
+                            <span class="spinner-border spinner-border-sm me-1 d-none quickadd-spinner" role="status" aria-hidden="true"></span>
+                            <i class="fa fa-check me-1 quickadd-btn-icon" aria-hidden="true"></i>
+                            <span class="quickadd-btn-text">{{#str}} savecard, block_quickcards {{/str}}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {{/hasanydecks}}
 </div>
+
+{{#hasanydecks}}
+{{#js}}
+require(['block_quickcards/quickadd'], function(QuickAdd) {
+    QuickAdd.init('{{uniqid}}');
+});
+{{/js}}
+{{/hasanydecks}}

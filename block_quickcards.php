@@ -95,24 +95,28 @@ class block_quickcards extends block_base {
         $alluserdecks = \local_quickcards\manager::get_user_decks($userid);
 
         $displaydecks = [];
-        if ($iscourse) {
-            // In course context: show decks associated with this course.
-            foreach ($alluserdecks as $deck) {
+        $deckoptions = [];
+        foreach ($alluserdecks as $deck) {
+            $iscurrent = ($iscourse && (int) $deck['courseid'] === $courseid);
+            $deckoptions[] = [
+                'id' => (int) $deck['id'],
+                'name' => $deck['name'],
+                'coursename' => $deck['coursename'] ?? '',
+                'hascourse' => !empty($deck['hascourse']),
+                'iscurrentcourse' => $iscurrent,
+            ];
+
+            if ($iscourse) {
                 if ((int) $deck['courseid'] === $courseid) {
                     $displaydecks[] = $deck;
                 }
+            } else if (!empty($deck['hasdue'])) {
+                $displaydecks[] = $deck;
             }
-        } else {
-            // In dashboard context: show decks that have pending reviews first.
-            foreach ($alluserdecks as $deck) {
-                if (!empty($deck['hasdue'])) {
-                    $displaydecks[] = $deck;
-                }
-            }
-            // If no decks have pending reviews, show up to 3 most recently modified decks.
-            if (empty($displaydecks) && !empty($alluserdecks)) {
-                $displaydecks = array_slice($alluserdecks, 0, 3);
-            }
+        }
+
+        if (!$iscourse && empty($displaydecks) && !empty($alluserdecks)) {
+            $displaydecks = array_slice($alluserdecks, 0, 3);
         }
 
         $mainurl = new moodle_url('/local/quickcards/view.php');
@@ -120,7 +124,10 @@ class block_quickcards extends block_base {
             $mainurl->param('courseid', $courseid);
         }
 
+        $uniqid = \html_writer::random_id('quickcards_');
+
         $renderdata = [
+            'uniqid' => $uniqid,
             'iscourse' => $iscourse,
             'coursename' => $iscourse ? format_string($this->page->course->fullname) : '',
             'hasdue' => !empty($stats['hasdue']),
@@ -128,6 +135,7 @@ class block_quickcards extends block_base {
             'totalcards' => (int) $stats['totalcards'],
             'hasdecks' => !empty($displaydecks),
             'decks' => $displaydecks,
+            'deckoptions' => $deckoptions,
             'mainurl' => $mainurl->out(false),
             'hasanydecks' => !empty($alluserdecks),
         ];

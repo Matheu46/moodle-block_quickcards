@@ -139,7 +139,7 @@ export const init = (uniqid) => {
         }
 
         const request = {
-            methodname: 'local_quickcards_create_card',
+            methodname: 'block_quickcards_create_card',
             args: {
                 deckid: deckId,
                 question: question,

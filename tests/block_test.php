@@ -84,7 +84,7 @@ final class block_test extends advanced_testcase {
 
         // Create a deck for this user.
         $now = time();
-        $deckid = $DB->insert_record('local_quickcards_decks', (object) [
+        $deckid = $DB->insert_record('block_quickcards_decks', (object) [
             'userid' => $user->id,
             'name' => 'Biologia Celular',
             'description' => 'Conceitos de Citologia',
@@ -114,7 +114,7 @@ final class block_test extends advanced_testcase {
         $this->setUser($user);
 
         $now = time();
-        $coursedeckid = $DB->insert_record('local_quickcards_decks', (object) [
+        $coursedeckid = $DB->insert_record('block_quickcards_decks', (object) [
             'userid' => $user->id,
             'name' => 'Baralho do Curso',
             'description' => 'Flashcards deste curso',
@@ -123,7 +123,7 @@ final class block_test extends advanced_testcase {
             'timemodified' => $now,
         ]);
 
-        $otherdeckid = $DB->insert_record('local_quickcards_decks', (object) [
+        $otherdeckid = $DB->insert_record('block_quickcards_decks', (object) [
             'userid' => $user->id,
             'name' => 'Baralho Geral',
             'description' => 'Outros assuntos',

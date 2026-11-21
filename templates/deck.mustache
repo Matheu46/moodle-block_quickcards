@@ -1,0 +1,372 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template block_quickcards/deck
+
+    QuickCards individual deck card management template.
+}}
+<div class="quickcards-deck-view container-fluid px-0">
+    <!-- Deck Header Banner -->
+    <div class="card border-0 shadow-sm bg-light mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <a href="{{config.wwwroot}}/blocks/quickcards/view.php" class="btn btn-outline-secondary btn-sm" title="{{#str}} backtodecks, block_quickcards {{/str}}">
+                            <i class="fa fa-arrow-left" aria-hidden="true"></i>
+                        </a>
+                        <h2 class="h3 mb-0">{{deck.name}}</h2>
+                        {{#deck.hascourse}}
+                            <span class="badge text-bg-light border">
+                                <i class="fa fa-graduation-cap me-1" aria-hidden="true"></i> {{deck.coursename}}
+                            </span>
+                        {{/deck.hascourse}}
+                    </div>
+                    {{#deck.description}}
+                        <div class="text-muted small mt-2">
+                            {{{deck.description}}}
+                        </div>
+                    {{/deck.description}}
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    {{#deck.hascards}}
+                        <a href="{{deck.studyurl}}" class="btn {{#deck.hasdue}}btn-success{{/deck.hasdue}}{{^deck.hasdue}}btn-outline-primary{{/deck.hasdue}}">
+                            <i class="fa fa-play me-1" aria-hidden="true"></i> {{#str}} studydeck, block_quickcards {{/str}}
+                            {{#deck.hasdue}}({{deck.duecount}}){{/deck.hasdue}}
+                        </a>
+                    {{/deck.hascards}}
+                    <button type="button" class="btn btn-primary" data-action="quickcards-create-card" data-bs-toggle="modal" data-bs-target="#quickcards-card-modal" data-deckid="{{deck.id}}">
+                        <i class="fa fa-plus me-1" aria-hidden="true"></i> {{#str}} addcard, block_quickcards {{/str}}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-action="quickcards-edit-deck" data-bs-toggle="modal" data-bs-target="#quickcards-deck-modal" data-id="{{deck.id}}" data-name="{{deck.rawname}}" data-description="{{deck.rawdescription}}" data-courseid="{{deck.courseid}}" title="{{#str}} editdeck, block_quickcards {{/str}}">
+                        <i class="fa fa-pencil" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-action="quickcards-export-deck" data-bs-toggle="modal" data-bs-target="#quickcards-export-modal" data-id="{{deck.id}}" data-name="{{deck.rawname}}" title="{{#str}} exportdeck, block_quickcards {{/str}}">
+                        <i class="fa fa-download text-info" aria-hidden="true"></i>
+                    </button>
+                    {{#deck.hascards}}
+                        <button type="button" class="btn btn-outline-secondary" data-action="quickcards-reset-deck" data-id="{{deck.id}}" data-name="{{deck.rawname}}" title="{{#str}} resetprogress, block_quickcards {{/str}}">
+                            <i class="fa fa-refresh text-warning" aria-hidden="true"></i>
+                        </button>
+                    {{/deck.hascards}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards List Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="h5 mb-0 text-muted">
+            <i class="fa fa-clone me-2" aria-hidden="true"></i>{{#str}} cards, block_quickcards {{/str}} ({{deck.totalcards}})
+        </h4>
+        {{#deck.hasdue}}
+            <span class="badge text-bg-warning fs-6">
+                <i class="fa fa-clock-o me-1" aria-hidden="true"></i> {{deck.duecount}} {{#str}} dueforreview, block_quickcards {{/str}}
+            </span>
+        {{/deck.hasdue}}
+    </div>
+
+    {{#deck.hascards}}
+        <!-- Search and Filter Bar -->
+        <div class="card border-0 shadow-sm bg-light mb-4">
+            <div class="card-body p-3">
+                <div class="row g-2 align-items-center">
+                    <!-- Text Search Input -->
+                    <div class="col-12 col-md-6 col-lg-5">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 text-muted">
+                                <i class="fa fa-search" aria-hidden="true"></i>
+                            </span>
+                            <input type="search"
+                                   id="quickcards-search-cards"
+                                   class="form-control border-start-0"
+                                   placeholder="{{#str}} searchcards, block_quickcards {{/str}}"
+                                   aria-label="{{#str}} searchcards, block_quickcards {{/str}}">
+                            <button class="btn btn-outline-secondary d-none"
+                                    type="button"
+                                    id="quickcards-clear-card-search"
+                                    title="{{#str}} clearfilter, block_quickcards {{/str}}">
+                                <i class="fa fa-times" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Status Filter Pills -->
+                    <div class="col-12 col-md-6 col-lg-7 d-flex flex-wrap gap-1 justify-content-md-end align-items-center">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="{{#str}} filterstatus, block_quickcards {{/str}}">
+                            <button type="button" class="btn btn-outline-primary active" data-filter="all">
+                                {{#str}} filterall, block_quickcards {{/str}}
+                                <span class="badge bg-secondary ms-1" id="filter-count-all">{{deck.totalcards}}</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" data-filter="due">
+                                <i class="fa fa-clock-o me-1" aria-hidden="true"></i>{{#str}} filterdue, block_quickcards {{/str}}
+                                <span class="badge bg-warning text-dark ms-1" id="filter-count-due">{{deck.duecount}}</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-info" data-filter="new">
+                                <i class="fa fa-star-o me-1" aria-hidden="true"></i>{{#str}} filternew, block_quickcards {{/str}}
+                                <span class="badge bg-info text-dark ms-1" id="filter-count-new">{{deck.newcount}}</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-success" data-filter="learned">
+                                <i class="fa fa-check me-1" aria-hidden="true"></i>{{#str}} filterlearned, block_quickcards {{/str}}
+                                <span class="badge bg-success ms-1" id="filter-count-learned">{{deck.learnedcount}}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Filter & Results Count bar -->
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top small text-muted">
+                    <span id="quickcards-cards-count-info">
+                        {{deck.totalcards}} {{#str}} cards, block_quickcards {{/str}}
+                    </span>
+                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-none" id="quickcards-reset-filters-btn">
+                        <i class="fa fa-undo me-1" aria-hidden="true"></i>{{#str}} clearfilter, block_quickcards {{/str}}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row row-cols-1 row-cols-md-2 g-3" id="quickcards-cards-container">
+            {{#deck.cards}}
+                <div class="col quickcards-card-item"
+                     id="card-item-{{id}}"
+                     data-card-id="{{id}}"
+                     data-is-due="{{#isdue}}1{{/isdue}}{{^isdue}}0{{/isdue}}"
+                     data-is-new="{{#isnew}}1{{/isnew}}{{^isnew}}0{{/isnew}}"
+                     data-is-learned="{{#islearned}}1{{/islearned}}{{^islearned}}0{{/islearned}}">
+                    <div class="card h-100 shadow-sm border {{#isdue}}border-warning{{/isdue}}">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                            <div>
+                                {{#isnew}}
+                                    <span class="badge text-bg-info text-dark">
+                                        <i class="fa fa-star-o me-1" aria-hidden="true"></i>{{#str}} filternew, block_quickcards {{/str}}
+                                    </span>
+                                {{/isnew}}
+                                {{#isdue}}
+                                    <span class="badge text-bg-warning">
+                                        <i class="fa fa-clock-o me-1" aria-hidden="true"></i> {{#str}} today, block_quickcards {{/str}}
+                                    </span>
+                                {{/isdue}}
+                                {{^isdue}}
+                                    {{^isnew}}
+                                        <span class="badge text-bg-light border text-muted">
+                                            <i class="fa fa-calendar me-1" aria-hidden="true"></i> {{nextreviewhuman}}
+                                        </span>
+                                    {{/isnew}}
+                                {{/isdue}}
+                                <span class="badge text-bg-light border text-muted ms-1" title="Repetitions">
+                                    {{repetitions}}x
+                                </span>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary" data-action="quickcards-move-card" data-bs-toggle="modal" data-bs-target="#quickcards-move-card-modal" data-id="{{id}}" title="{{#str}} movecard, block_quickcards {{/str}}">
+                                    <i class="fa fa-folder-open-o text-secondary" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" data-action="quickcards-edit-card" data-bs-toggle="modal" data-bs-target="#quickcards-card-modal" data-id="{{id}}" data-question="{{rawquestion}}" data-answer="{{rawanswer}}" title="{{#str}} editcard, block_quickcards {{/str}}">
+                                    <i class="fa fa-pencil text-primary" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" data-action="quickcards-delete-card" data-id="{{id}}" title="{{#str}} deletecard, block_quickcards {{/str}}">
+                                    <i class="fa fa-trash text-danger" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Question Front -->
+                            <div class="mb-3">
+                                <div class="text-uppercase small fw-bold text-muted mb-1">
+                                    <i class="fa fa-question-circle me-1 text-primary" aria-hidden="true"></i> {{#str}} question, block_quickcards {{/str}}
+                                </div>
+                                <div class="p-2 rounded bg-light border-start border-4 border-primary">
+                                    {{{question}}}
+                                </div>
+                            </div>
+                            <!-- Answer Back -->
+                            <div>
+                                <div class="text-uppercase small fw-bold text-muted mb-1">
+                                    <i class="fa fa-check-circle me-1 text-success" aria-hidden="true"></i> {{#str}} answer, block_quickcards {{/str}}
+                                </div>
+                                <div class="p-2 rounded bg-light border-start border-4 border-success">
+                                    {{{answer}}}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {{/deck.cards}}
+        </div>
+
+        <!-- Empty Search State -->
+        <div id="quickcards-no-search-results" class="card text-center py-5 border-dashed shadow-sm d-none mt-3">
+            <div class="card-body">
+                <div class="mb-3 text-muted">
+                    <i class="fa fa-search fa-3x" aria-hidden="true"></i>
+                </div>
+                <h5 class="card-title">{{#str}} nocardsfound, block_quickcards {{/str}}</h5>
+                <p class="card-text text-muted small">
+                    {{#str}} trydifferentsearch, block_quickcards {{/str}}
+                </p>
+                <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="quickcards-empty-clear-btn">
+                    <i class="fa fa-times me-1" aria-hidden="true"></i>{{#str}} clearfilter, block_quickcards {{/str}}
+                </button>
+            </div>
+        </div>
+    {{/deck.hascards}}
+
+    {{^deck.hascards}}
+        <div class="card text-center py-5 border-dashed shadow-sm">
+            <div class="card-body">
+                <div class="mb-3 text-secondary opacity-75">
+                    <i class="fa fa-file-text-o fa-4x" aria-hidden="true"></i>
+                </div>
+                <h4 class="card-title">{{#str}} nocards, block_quickcards {{/str}}</h4>
+                <p class="card-text text-muted mx-auto" style="max-width: 500px;">
+                    {{#str}} nocardsdesc, block_quickcards {{/str}}
+                </p>
+                <button type="button" class="btn btn-primary mt-2" data-action="quickcards-create-card" data-bs-toggle="modal" data-bs-target="#quickcards-card-modal" data-deckid="{{deck.id}}">
+                    <i class="fa fa-plus me-1" aria-hidden="true"></i> {{#str}} addcard, block_quickcards {{/str}}
+                </button>
+            </div>
+        </div>
+    {{/deck.hascards}}
+</div>
+
+<!-- Modal: Create / Edit Card -->
+<div class="modal fade" id="quickcards-card-modal" tabindex="-1" aria-labelledby="quickcards-card-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form id="quickcards-card-form">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickcards-card-modal-title">{{#str}} addcard, block_quickcards {{/str}}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{#str}} close, block_quickcards {{/str}}"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="quickcards-card-id" value="0">
+                    <input type="hidden" id="quickcards-card-deckid" value="{{deck.id}}">
+
+                    <div class="mb-3">
+                        <label for="quickcards-card-question" class="form-label fw-bold">
+                            <i class="fa fa-question-circle text-primary me-1" aria-hidden="true"></i> {{#str}} question, block_quickcards {{/str}} <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="quickcards-card-question" rows="4" required placeholder="What concept, prompt or question do you want to recall?"></textarea>
+                        <div class="form-text text-muted">{{#str}} question_help, block_quickcards {{/str}}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="quickcards-card-answer" class="form-label fw-bold">
+                            <i class="fa fa-check-circle text-success me-1" aria-hidden="true"></i> {{#str}} answer, block_quickcards {{/str}} <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="quickcards-card-answer" rows="4" required placeholder="What is the answer, formula, or key definition?"></textarea>
+                        <div class="form-text text-muted">{{#str}} answer_help, block_quickcards {{/str}}</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{#str}} cancel, block_quickcards {{/str}}</button>
+                    <button type="submit" class="btn btn-primary" id="quickcards-card-submit-btn">
+                        <i class="fa fa-save me-1" aria-hidden="true"></i> {{#str}} save, block_quickcards {{/str}}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Deck (available inside deck.php as well) -->
+<div class="modal fade" id="quickcards-deck-modal" tabindex="-1" aria-labelledby="quickcards-deck-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="quickcards-deck-form">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickcards-deck-modal-title">{{#str}} editdeck, block_quickcards {{/str}}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{#str}} close, block_quickcards {{/str}}"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="quickcards-deck-id" value="{{deck.id}}">
+                    
+                    <div class="mb-3">
+                        <label for="quickcards-deck-name" class="form-label fw-bold">{{#str}} deckname, block_quickcards {{/str}} <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="quickcards-deck-name" value="{{deck.rawname}}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="quickcards-deck-description" class="form-label fw-bold">{{#str}} deckdescription, block_quickcards {{/str}}</label>
+                        <textarea class="form-control" id="quickcards-deck-description" rows="3">{{deck.rawdescription}}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="quickcards-deck-course" class="form-label fw-bold">{{#str}} coursedeck, block_quickcards {{/str}}</label>
+                        <select class="form-select" id="quickcards-deck-course">
+                            <option value="0">{{#str}} generaldeck, block_quickcards {{/str}}</option>
+                            {{#courses}}
+                                <option value="{{id}}">{{fullname}}</option>
+                            {{/courses}}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{#str}} cancel, block_quickcards {{/str}}</button>
+                    <button type="submit" class="btn btn-primary" id="quickcards-deck-submit-btn">
+                        <i class="fa fa-save me-1" aria-hidden="true"></i> {{#str}} save, block_quickcards {{/str}}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Move Card to Another Deck -->
+<div class="modal fade" id="quickcards-move-card-modal" tabindex="-1" aria-labelledby="quickcards-move-card-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="quickcards-move-card-form">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickcards-move-card-modal-title">
+                        <i class="fa fa-folder-open-o me-2 text-primary" aria-hidden="true"></i>{{#str}} moveto, block_quickcards {{/str}}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{#str}} close, block_quickcards {{/str}}"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="quickcards-move-card-id" value="0">
+                    {{#hasotherdecks}}
+                        <div class="mb-3">
+                            <label for="quickcards-move-target-deck" class="form-label fw-bold">{{#str}} selecttargetdeck, block_quickcards {{/str}} <span class="text-danger">*</span></label>
+                            <select class="form-select" id="quickcards-move-target-deck" required>
+                                {{#otherdecks}}
+                                    <option value="{{id}}">{{name}}</option>
+                                {{/otherdecks}}
+                            </select>
+                        </div>
+                    {{/hasotherdecks}}
+                    {{^hasotherdecks}}
+                        <div class="alert alert-warning mb-0" role="alert">
+                            <i class="fa fa-info-circle me-1" aria-hidden="true"></i> {{#str}} notargetdecks, block_quickcards {{/str}}
+                        </div>
+                    {{/hasotherdecks}}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{#str}} cancel, block_quickcards {{/str}}</button>
+                    {{#hasotherdecks}}
+                        <button type="submit" class="btn btn-primary" id="quickcards-move-card-submit-btn">
+                            <i class="fa fa-arrow-right me-1" aria-hidden="true"></i> {{#str}} movecard, block_quickcards {{/str}}
+                        </button>
+                    {{/hasotherdecks}}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{> block_quickcards/export_modal }}

@@ -27,14 +27,30 @@ defined('MOODLE_INTERNAL') || die();
 $string['pluginname'] = 'QuickCards';
 $string['quickcards:addinstance'] = 'Add a new QuickCards block';
 $string['quickcards:myaddinstance'] = 'Add a new QuickCards block to Dashboard';
-$string['duereviews'] = 'Cards due for review';
-$string['duecountbadge'] = '{$a} due';
-$string['nodecks'] = 'No flashcard decks yet.';
-$string['alldone'] = 'All caught up! No reviews due today.';
+$string['quickcards:use'] = 'Use QuickCards spaced repetition';
+
+// Navigation & General.
+$string['mycards'] = 'My QuickCards';
+$string['decks'] = 'Decks';
 $string['study'] = 'Study';
-$string['studydeck'] = 'Study {$a}';
+$string['reviews'] = 'Reviews';
+$string['totaldecks'] = 'Total Decks';
+$string['totalcards'] = 'Total Cards';
+$string['dueforreview'] = 'Due Reviews';
+$string['studyall'] = 'Study All Due';
+$string['managecards'] = 'Manage Cards';
+$string['actions'] = 'Actions';
+$string['course'] = 'Course';
+$string['save'] = 'Save';
+$string['cancel'] = 'Cancel';
+$string['close'] = 'Close';
+$string['delete'] = 'Delete';
+$string['edit'] = 'Edit';
+
+// Block widget.
+$string['duecountbadge'] = '{$a} due';
+$string['alldone'] = 'All caught up! No reviews due today.';
 $string['viewall'] = 'Open QuickCards';
-$string['createdeck'] = 'Create Deck';
 $string['coursedecks'] = 'Decks in this course';
 $string['myreviews'] = 'My Reviews';
 $string['totalcardsstat'] = 'Total cards';
@@ -48,6 +64,164 @@ $string['cardback_placeholder'] = 'What is the answer or definition?';
 $string['savecard'] = 'Save card';
 $string['cardsaved'] = 'Card created successfully!';
 $string['cardemptyerror'] = 'Both front and back content are required.';
-$string['nodeckselected'] = 'Please select a deck.';
-$string['createnewdeckfirst'] = 'Create a deck first';
-$string['nodeckfoundnotice'] = 'You need to create a deck before adding cards.';
+
+// Decks.
+$string['deck'] = 'Deck';
+$string['createdeck'] = 'Create Deck';
+$string['editdeck'] = 'Edit Deck';
+$string['deletedeck'] = 'Delete Deck';
+$string['deckname'] = 'Deck Name';
+$string['deckname_help'] = 'Give your deck a clear name, such as "Anatomy - Muscles" or "JavaScript Basics".';
+$string['deckdescription'] = 'Description';
+$string['nodecks'] = 'You have not created any decks yet.';
+$string['nodecksdesc'] = 'Flashcard decks help you organize concepts and study with active recall. Create your first deck to get started!';
+$string['coursedeck'] = 'Linked Course';
+$string['generaldeck'] = 'General (Not tied to a course)';
+$string['confirmdeletedeck'] = 'Are you sure you want to delete this deck? All its cards and review history will be permanently deleted.';
+$string['resetprogress'] = 'Reset Progress';
+$string['resetdeck'] = 'Reset Deck Progress';
+$string['confirmresetdeck'] = 'Are you sure you want to reset the study progress for "{$a}"? All cards in this deck will be reset to 0 repetitions and scheduled for review today.';
+$string['deckreset'] = 'Deck study progress has been reset successfully.';
+$string['deckcreated'] = 'Deck created successfully.';
+$string['deckupdated'] = 'Deck updated successfully.';
+$string['deckdeleted'] = 'Deck deleted successfully.';
+
+// Cards.
+$string['card'] = 'Card';
+$string['cards'] = 'Cards';
+$string['addcard'] = 'Add Card';
+$string['createcard'] = 'Add Card';
+$string['editcard'] = 'Edit Card';
+$string['deletecard'] = 'Delete Card';
+$string['question'] = 'Front (Prompt / Question)';
+$string['question_help'] = 'The question, term, or prompt that triggers active recall.';
+$string['answer'] = 'Back (Answer / Explanation)';
+$string['answer_help'] = 'The concise explanation or solution that you want to remember.';
+$string['nocards'] = 'There are no cards in this deck yet.';
+$string['nocardsdesc'] = 'Add cards with key concepts, definitions, or questions to start studying!';
+$string['cardcount'] = '{$a} cards';
+$string['confirmdeletecard'] = 'Are you sure you want to delete this card?';
+$string['cardcreated'] = 'Card created successfully.';
+$string['cardupdated'] = 'Card updated successfully.';
+$string['carddeleted'] = 'Card deleted successfully.';
+$string['movecard'] = 'Move Card';
+$string['moveto'] = 'Move to Deck';
+$string['selecttargetdeck'] = 'Select destination deck';
+$string['cardmoved'] = 'Card moved successfully.';
+$string['notargetdecks'] = 'You have no other decks to move this card to.';
+$string['nextreview'] = 'Next Review';
+$string['never'] = 'Never reviewed';
+$string['today'] = 'Due today';
+$string['inxdays'] = 'In {$a} days';
+
+// Study & Review.
+$string['studydeck'] = 'Study {$a}';
+$string['duereviews'] = 'Cards due for review';
+$string['noduecards'] = 'Great job! You have no cards due for review right now.';
+$string['showanswer'] = 'Show Answer';
+$string['showanswerspace'] = 'Show Answer (Space)';
+$string['flipcard'] = 'Flip card';
+$string['rating_again'] = 'Again (1)';
+$string['rating_hard'] = 'Hard (2)';
+$string['rating_good'] = 'Good (3)';
+$string['rating_easy'] = 'Easy (4)';
+$string['sessioncomplete'] = 'Session completed!';
+$string['sessioncompletedesc'] = 'You have reviewed all due cards for this session.';
+$string['backtodecks'] = 'Back to Decks';
+$string['backtodeck'] = 'Back to Deck';
+$string['cardof'] = 'Card {$a->current} of {$a->total}';
+$string['congratulations'] = 'Congratulations!';
+$string['studyagain'] = 'Study Again';
+$string['keyboard_shortcuts'] = 'Shortcuts: [Space] Flip card &bull; [1] Again &bull; [2] Hard &bull; [3] Good &bull; [4] Easy';
+
+// Search & Filters.
+$string['searchcards'] = 'Search cards...';
+$string['searchdecks'] = 'Search decks...';
+$string['filterstatus'] = 'Filter by status';
+$string['filtercourse'] = 'Filter by course';
+$string['filterall'] = 'All';
+$string['filterdue'] = 'Due';
+$string['filternew'] = 'New';
+$string['filterlearned'] = 'Learned';
+$string['allcourses'] = 'All courses';
+$string['withduecards'] = 'With due reviews';
+$string['nocardsfound'] = 'No cards match your search or filter.';
+$string['nodecksfound'] = 'No decks match your search or filter.';
+$string['trydifferentsearch'] = 'Try searching with different keywords or reset your filters.';
+$string['clearfilter'] = 'Clear filters';
+$string['showingcount'] = 'Showing {$a->shown} of {$a->total} cards';
+$string['showingdeckscount'] = 'Showing {$a->shown} of {$a->total} decks';
+
+// Export & Import.
+$string['exportdeck'] = 'Export Deck';
+$string['exportdeckfor'] = 'Exporting deck:';
+$string['exportcontentonly'] = 'Cards only (Recommended for sharing)';
+$string['exportcontentonlydesc'] = 'Exports deck details and all flashcards without your personal review history. Ideal for sharing with classmates.';
+$string['exportwithprogress'] = 'Cards + Study Progress (Personal backup)';
+$string['exportwithprogressdesc'] = 'Includes your SM-2 intervals, ease factors, and repetition counts. Ideal for backing up or migrating your personal study progress.';
+$string['exportjson'] = 'Download File';
+$string['exportcsv'] = 'CSV — Spreadsheet / Anki / Quizlet';
+$string['exportcsvdesc'] = 'Exports questions and answers as a standard CSV table. Compatible with Excel, Google Sheets, Anki, and Quizlet.';
+$string['importdeck'] = 'Import Deck';
+$string['importjson'] = 'Import JSON';
+$string['importtabjson'] = 'QuickCards (JSON)';
+$string['importtabcsv'] = 'CSV / Anki / Quizlet';
+$string['selectcsvfile'] = 'Upload CSV / TXT file (optional)';
+$string['selectcsvfile_help'] = 'Upload a .csv or .txt file, or paste your list directly below.';
+$string['pastecsvdata'] = 'Paste cards (Question & Answer per line)';
+$string['pastecsvdata_placeholder'] = "What is mitochondria?\tPowerhouse of the cell\nCapital of France\tParis";
+$string['delimiter'] = 'Separator';
+$string['delimiter_auto'] = 'Auto-detect (Recommended)';
+$string['delimiter_tab'] = 'Tab (Anki / Quizlet default)';
+$string['delimiter_semicolon'] = 'Semicolon (;)';
+$string['delimiter_comma'] = 'Comma (,)';
+$string['csvcardsdetected'] = '{$a} valid cards detected';
+$string['selectjsonfile'] = 'Select QuickCards JSON file';
+$string['selectjsonfile_help'] = 'Choose a .json file exported from QuickCards.';
+$string['deckpreview'] = 'Deck Preview';
+$string['cardsinfile'] = '{$a} cards found';
+$string['containsstudyprogress'] = 'This file includes personal study progress.';
+$string['restoreprogress'] = 'Restore study progress';
+$string['restoreprogress_help'] = 'If enabled, previous review intervals and ease factors will be preserved. Leave unchecked to start studying these cards as new.';
+$string['deckimported'] = 'Deck "{$a->name}" with {$a->count} cards imported successfully.';
+$string['invalidfileformat'] = 'The selected file is not a valid QuickCards export.';
+$string['invalidjson'] = 'Could not parse JSON from the selected file.';
+$string['nodeckname'] = 'The export file does not contain a valid deck name.';
+$string['nofileorcard'] = 'The export file does not contain any cards.';
+$string['unsupportedversion'] = 'Unsupported export file version: {$a}.';
+
+// Admin settings.
+$string['setting_enabled'] = 'Enable QuickCards';
+$string['setting_enabled_desc'] = 'If enabled, users with permission can access their flashcards and spaced repetition study sessions. If disabled, the entire plugin is deactivated.';
+$string['setting_allowedcohorts'] = 'Allowed cohorts';
+$string['setting_allowedcohorts_desc'] = 'Restrict QuickCards access to members of the selected cohorts. Leave empty to allow all authenticated users with permission. Site administrators always retain access.';
+$string['setting_nocohorts'] = 'No cohorts exist on this site yet. Create cohorts in Site administration > Users > Accounts > Cohorts to restrict access by cohort. Currently, all users with permission can access QuickCards.';
+$string['plugindisabled'] = 'QuickCards is currently disabled on this site.';
+$string['accessrestricted'] = 'Access to QuickCards is currently restricted to specific cohorts.';
+
+// Privacy API metadata and descriptions.
+$string['privacy:metadata'] = 'QuickCards stores user flashcards, decks, and spaced repetition review intervals.';
+$string['privacy:metadata:block_quickcards_decks'] = 'Stores flashcard decks created by users.';
+$string['privacy:metadata:block_quickcards_decks:userid'] = 'The ID of the user who owns the deck.';
+$string['privacy:metadata:block_quickcards_decks:courseid'] = 'The ID of the course linked to the deck, or 0 for general decks.';
+$string['privacy:metadata:block_quickcards_decks:name'] = 'The name of the flashcard deck.';
+$string['privacy:metadata:block_quickcards_decks:description'] = 'The description or topic summary of the flashcard deck.';
+$string['privacy:metadata:block_quickcards_decks:timecreated'] = 'The timestamp when the deck was created.';
+$string['privacy:metadata:block_quickcards_decks:timemodified'] = 'The timestamp when the deck was last modified.';
+
+$string['privacy:metadata:block_quickcards_cards'] = 'Stores individual flashcards within decks.';
+$string['privacy:metadata:block_quickcards_cards:deckid'] = 'The ID of the deck to which the flashcard belongs.';
+$string['privacy:metadata:block_quickcards_cards:userid'] = 'The ID of the user who created the flashcard.';
+$string['privacy:metadata:block_quickcards_cards:question'] = 'The question or prompt on the front of the flashcard.';
+$string['privacy:metadata:block_quickcards_cards:answer'] = 'The answer or explanation on the back of the flashcard.';
+$string['privacy:metadata:block_quickcards_cards:timecreated'] = 'The timestamp when the card was created.';
+$string['privacy:metadata:block_quickcards_cards:timemodified'] = 'The timestamp when the card was last modified.';
+
+$string['privacy:metadata:block_quickcards_reviews'] = 'Stores spaced repetition study progress and review history per card and user.';
+$string['privacy:metadata:block_quickcards_reviews:cardid'] = 'The ID of the card reviewed.';
+$string['privacy:metadata:block_quickcards_reviews:userid'] = 'The ID of the user who performed the study session.';
+$string['privacy:metadata:block_quickcards_reviews:easefactor'] = 'The SuperMemo SM-2 ease factor determining review interval growth.';
+$string['privacy:metadata:block_quickcards_reviews:intervaldays'] = 'The number of days until the next scheduled review.';
+$string['privacy:metadata:block_quickcards_reviews:repetitions'] = 'The count of consecutive successful reviews.';
+$string['privacy:metadata:block_quickcards_reviews:nextreview'] = 'The timestamp when the card is next due for review.';
+$string['privacy:metadata:block_quickcards_reviews:lastreview'] = 'The timestamp of the most recent review session.';

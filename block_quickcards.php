@@ -78,12 +78,12 @@ class block_quickcards extends block_base {
             return $this->content;
         }
 
-        // Ensure the local_quickcards plugin is present and the user has access.
-        if (!class_exists('\local_quickcards\manager')) {
+        // Ensure the manager class is present and the user has access.
+        if (!class_exists('\block_quickcards\manager')) {
             return $this->content;
         }
 
-        if (!\local_quickcards\manager::can_access((int) $USER->id)) {
+        if (!\block_quickcards\manager::can_access((int) $USER->id)) {
             return $this->content;
         }
 
@@ -91,8 +91,8 @@ class block_quickcards extends block_base {
         $courseid = (int) ($this->page->course->id ?? SITEID);
         $iscourse = ($courseid > 0 && $courseid !== (int) SITEID);
 
-        $stats = \local_quickcards\manager::get_user_stats($userid);
-        $alluserdecks = \local_quickcards\manager::get_user_decks($userid);
+        $stats = \block_quickcards\manager::get_user_stats($userid);
+        $alluserdecks = \block_quickcards\manager::get_user_decks($userid);
 
         $displaydecks = [];
         $deckoptions = [];

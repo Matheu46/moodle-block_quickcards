@@ -119,7 +119,7 @@ class block_quickcards extends block_base {
             $displaydecks = array_slice($alluserdecks, 0, 3);
         }
 
-        $mainurl = new moodle_url('/local/quickcards/view.php');
+        $mainurl = new moodle_url('/blocks/quickcards/view.php');
         if ($iscourse) {
             $mainurl->param('courseid', $courseid);
         }

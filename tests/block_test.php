@@ -150,4 +150,63 @@ final class block_test extends advanced_testcase {
         $this->assertStringNotContainsString('data-deck-id="' . $otherdeckid . '"', $content->text);
         $this->assertStringContainsString('value="' . $coursedeckid . '" selected', $content->text);
     }
+
+    /**
+     * Test that in course context without course decks, user with other decks sees nocoursedecks.
+     */
+    public function test_course_context_without_course_decks_shows_nocoursedecks(): void {
+        global $DB;
+
+        $user = $this->getDataGenerator()->create_user();
+        $course = $this->getDataGenerator()->create_course();
+        $this->setUser($user);
+
+        // User has a general deck, but none in this course.
+        $now = time();
+        $DB->insert_record('block_quickcards_decks', (object) [
+            'userid' => $user->id,
+            'name' => 'Baralho Geral',
+            'description' => 'Outros assuntos',
+            'courseid' => 0,
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ]);
+
+        $page = new \moodle_page();
+        $page->set_course($course);
+
+        $block = new \block_quickcards();
+        $block->page = $page;
+        $block->init();
+
+        $content = $block->get_content();
+
+        $this->assertNotEmpty($content);
+        $this->assertStringContainsString(get_string('nocoursedecks', 'block_quickcards'), $content->text);
+        $this->assertStringNotContainsString(get_string('nodecks', 'block_quickcards'), $content->text);
+        $this->assertStringContainsString('data-action="quickadd-card"', $content->text);
+    }
+
+    /**
+     * Test that in course context, user without any decks at all sees nodecks.
+     */
+    public function test_course_context_without_any_decks_shows_nodecks(): void {
+        $user = $this->getDataGenerator()->create_user();
+        $course = $this->getDataGenerator()->create_course();
+        $this->setUser($user);
+
+        $page = new \moodle_page();
+        $page->set_course($course);
+
+        $block = new \block_quickcards();
+        $block->page = $page;
+        $block->init();
+
+        $content = $block->get_content();
+
+        $this->assertNotEmpty($content);
+        $this->assertStringContainsString(get_string('nodecks', 'block_quickcards'), $content->text);
+        $this->assertStringNotContainsString(get_string('nocoursedecks', 'block_quickcards'), $content->text);
+        $this->assertStringNotContainsString('data-action="quickadd-card"', $content->text);
+    }
 }

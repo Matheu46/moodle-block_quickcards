@@ -123,6 +123,7 @@ $string['nextreview'] = 'Próxima Revisão';
 $string['nocards'] = 'Não há cards neste baralho ainda.';
 $string['nocardsdesc'] = 'Adicione cards com conceitos principais, definições ou perguntas para começar a estudar!';
 $string['nocardsfound'] = 'Nenhum card encontrado com esses filtros.';
+$string['nocoursedecks'] = 'Nenhum baralho vinculado a este curso ainda.';
 $string['nodeckname'] = 'O arquivo de exportação não contém um nome de baralho válido.';
 $string['nodecks'] = 'Você ainda não criou nenhum baralho.';
 $string['nodecksdesc'] = 'Baralhos de flashcards ajudam você a organizar conceitos e estudar com memorização ativa. Crie seu primeiro baralho para começar!';

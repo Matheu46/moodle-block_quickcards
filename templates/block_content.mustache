@@ -133,9 +133,19 @@
     {{^hasdecks}}
     <div class="text-center py-3 text-muted">
         <i class="fa fa-clone fa-2x mb-2 d-block" aria-hidden="true"></i>
-        <p class="mb-2"><small>{{#str}} nodecks, block_quickcards {{/str}}</small></p>
+        {{#iscourse}}
+            {{#hasanydecks}}
+                <p class="mb-2"><small>{{#str}} nocoursedecks, block_quickcards {{/str}}</small></p>
+            {{/hasanydecks}}
+            {{^hasanydecks}}
+                <p class="mb-2"><small>{{#str}} nodecks, block_quickcards {{/str}}</small></p>
+            {{/hasanydecks}}
+        {{/iscourse}}
+        {{^iscourse}}
+            <p class="mb-2"><small>{{#str}} nodecks, block_quickcards {{/str}}</small></p>
+        {{/iscourse}}
         <a href="{{mainurl}}" class="btn btn-sm btn-outline-primary">
-            <i class="fa fa-plus" aria-hidden="true"></i> {{#str}} createdeck, block_quickcards {{/str}}
+            <i class="fa fa-plus me-1" aria-hidden="true"></i> {{#str}} createdeck, block_quickcards {{/str}}
         </a>
     </div>
     {{/hasdecks}}

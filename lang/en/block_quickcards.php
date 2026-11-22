@@ -123,6 +123,7 @@ $string['nextreview'] = 'Next Review';
 $string['nocards'] = 'There are no cards in this deck yet.';
 $string['nocardsdesc'] = 'Add cards with key concepts, definitions, or questions to start studying!';
 $string['nocardsfound'] = 'No cards match your search or filter.';
+$string['nocoursedecks'] = 'No flashcard decks linked to this course yet.';
 $string['nodeckname'] = 'The export file does not contain a valid deck name.';
 $string['nodecks'] = 'You have not created any decks yet.';
 $string['nodecksdesc'] = 'Flashcard decks help you organize concepts and study with active recall. Create your first deck to get started!';

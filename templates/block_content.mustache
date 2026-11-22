@@ -159,7 +159,7 @@
                             <label for="quickadd-deck-{{uniqid}}" class="form-label fw-bold">
                                 {{#str}} targetdeck, block_quickcards {{/str}}
                             </label>
-                            <select class="form-select" id="quickadd-deck-{{uniqid}}" name="deckid" required>
+                            <select class="form-select" id="quickadd-deck-{{uniqid}}" name="deckid">
                                 {{#deckoptions}}
                                 <option value="{{id}}" {{#iscurrentcourse}}selected{{/iscurrentcourse}}>
                                     {{name}}{{#hascourse}} ({{coursename}}){{/hascourse}}

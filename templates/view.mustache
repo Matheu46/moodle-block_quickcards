@@ -52,6 +52,7 @@
                 "cardcount": 10,
                 "duecount": 3,
                 "hasdue": true,
+                "hascards": true,
                 "viewurl": "https://example.com/blocks/quickcards/deck.php?id=1",
                 "studyurl": "https://example.com/blocks/quickcards/study.php?deckid=1"
             }
@@ -211,6 +212,7 @@
                                                 <i class="fa fa-pencil me-2 text-primary" aria-hidden="true"></i> {{#str}} editdeck, block_quickcards {{/str}}
                                             </a>
                                         </li>
+                                        {{#hascards}}
                                         <li>
                                             <a class="dropdown-item" href="#" data-action="quickcards-export-deck" data-bs-toggle="modal" data-bs-target="#quickcards-export-modal" data-id="{{id}}" data-name="{{rawname}}">
                                                 <i class="fa fa-download me-2 text-info" aria-hidden="true"></i> {{#str}} exportdeck, block_quickcards {{/str}}
@@ -221,6 +223,7 @@
                                                 <i class="fa fa-refresh me-2 text-warning" aria-hidden="true"></i> {{#str}} resetprogress, block_quickcards {{/str}}
                                             </a>
                                         </li>
+                                        {{/hascards}}
                                         <li><hr class="dropdown-divider"></li>
                                         <li>
                                             <a class="dropdown-item text-danger" href="#" data-action="quickcards-delete-deck" data-id="{{id}}" data-name="{{rawname}}">

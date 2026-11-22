@@ -166,4 +166,57 @@ final class manager_test extends advanced_testcase {
         sort($questions);
         $this->assertEquals(['Number 1', 'Number 2', 'Number 3', 'Number 4', 'Number 5'], $questions);
     }
+
+    /**
+     * Test hascards flag in get_user_decks and get_deck_with_cards.
+     */
+    public function test_deck_hascards_flag(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $now = time();
+        $deckid = $DB->insert_record('block_quickcards_decks', (object) [
+            'userid' => $user->id,
+            'name' => 'Empty Deck',
+            'description' => '',
+            'courseid' => 0,
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ]);
+
+        // Empty deck should have hascards = false.
+        $decks = manager::get_user_decks((int) $user->id);
+        $this->assertCount(1, $decks);
+        $this->assertFalse($decks[0]['hascards']);
+        $this->assertEquals(0, $decks[0]['totalcards']);
+
+        $deckwithcards = manager::get_deck_with_cards((int) $deckid, (int) $user->id);
+        $this->assertNotNull($deckwithcards);
+        $this->assertFalse($deckwithcards['hascards']);
+        $this->assertEquals(0, $deckwithcards['totalcards']);
+
+        // Add a card to the deck.
+        $DB->insert_record('block_quickcards_cards', (object) [
+            'deckid' => $deckid,
+            'userid' => $user->id,
+            'question' => 'Sample Question',
+            'answer' => 'Sample Answer',
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ]);
+
+        // Deck with cards should have hascards = true.
+        $decks = manager::get_user_decks((int) $user->id);
+        $this->assertCount(1, $decks);
+        $this->assertTrue($decks[0]['hascards']);
+        $this->assertEquals(1, $decks[0]['totalcards']);
+
+        $deckwithcards = manager::get_deck_with_cards((int) $deckid, (int) $user->id);
+        $this->assertNotNull($deckwithcards);
+        $this->assertTrue($deckwithcards['hascards']);
+        $this->assertEquals(1, $deckwithcards['totalcards']);
+    }
 }

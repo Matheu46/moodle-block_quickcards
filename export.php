@@ -40,13 +40,20 @@ $deckid = required_param('id', PARAM_INT);
 $format = optional_param('format', 'json', PARAM_ALPHA);
 $includeprogress = (bool) optional_param('includeprogress', 0, PARAM_BOOL);
 
+$payload = \block_quickcards\exporter::export_deck($deckid, $USER->id, $includeprogress);
+if (empty($payload['cards'])) {
+    throw new \moodle_exception(
+        'nocards',
+        'block_quickcards',
+        new \moodle_url('/blocks/quickcards/deck.php', ['id' => $deckid])
+    );
+}
+
 if ($format === 'csv') {
-    $payload = \block_quickcards\exporter::export_deck($deckid, $USER->id, false);
     $filename = \block_quickcards\exporter::generate_filename($payload['deck']['name'], false, 'csv');
     $content = \block_quickcards\exporter::export_deck_csv($deckid, $USER->id);
     $contenttype = 'text/csv; charset=utf-8';
 } else {
-    $payload = \block_quickcards\exporter::export_deck($deckid, $USER->id, $includeprogress);
     $filename = \block_quickcards\exporter::generate_filename($payload['deck']['name'], $includeprogress, 'json');
     $content = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $contenttype = 'application/json; charset=utf-8';

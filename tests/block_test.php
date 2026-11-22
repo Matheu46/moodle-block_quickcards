@@ -74,6 +74,8 @@ final class block_test extends advanced_testcase {
         $this->assertStringContainsString(get_string('nodecks', 'block_quickcards'), $content->text);
         $this->assertStringNotContainsString('data-action="quickadd-card"', $content->text);
         $this->assertStringNotContainsString(get_string('alldone', 'block_quickcards'), $content->text);
+        $this->assertStringContainsString('data-action="quickcreate-deck"', $content->text);
+        $this->assertStringContainsString('quickcreate-deck-modal-', $content->text);
     }
 
     /**
@@ -185,6 +187,8 @@ final class block_test extends advanced_testcase {
         $this->assertStringContainsString(get_string('nocoursedecks', 'block_quickcards'), $content->text);
         $this->assertStringNotContainsString(get_string('nodecks', 'block_quickcards'), $content->text);
         $this->assertStringContainsString('data-action="quickadd-card"', $content->text);
+        $this->assertStringContainsString('data-action="quickcreate-deck"', $content->text);
+        $this->assertStringContainsString('quickcreate-deck-modal-', $content->text);
     }
 
     /**
@@ -208,5 +212,7 @@ final class block_test extends advanced_testcase {
         $this->assertStringContainsString(get_string('nodecks', 'block_quickcards'), $content->text);
         $this->assertStringNotContainsString(get_string('nocoursedecks', 'block_quickcards'), $content->text);
         $this->assertStringNotContainsString('data-action="quickadd-card"', $content->text);
+        $this->assertStringContainsString('data-action="quickcreate-deck"', $content->text);
+        $this->assertStringContainsString('quickcreate-deck-modal-', $content->text);
     }
 }

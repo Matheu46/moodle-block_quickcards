@@ -129,6 +129,7 @@ class block_quickcards extends block_base {
         $renderdata = [
             'uniqid' => $uniqid,
             'iscourse' => $iscourse,
+            'courseid' => $courseid,
             'coursename' => $iscourse ? format_string($this->page->course->fullname) : '',
             'hasdue' => !empty($stats['hasdue']),
             'totaldue' => (int) $stats['totaldue'],
@@ -136,6 +137,7 @@ class block_quickcards extends block_base {
             'hasdecks' => !empty($displaydecks),
             'decks' => $displaydecks,
             'deckoptions' => $deckoptions,
+            'courses' => \block_quickcards\manager::get_user_courses_options($userid),
             'mainurl' => $mainurl->out(false),
             'hasanydecks' => !empty($alluserdecks),
         ];

@@ -25,7 +25,9 @@
     Context variables required for this template:
     * uniqid: string
     * iscourse: bool
+    * courseid: int
     * coursename: string
+    * courses: array
     * hasdue: bool
     * totaldue: int
     * totalcards: int
@@ -39,7 +41,14 @@
     {
         "uniqid": "quickcards65d8a",
         "iscourse": true,
+        "courseid": 2,
         "coursename": "Biology 101",
+        "courses": [
+            {
+                "id": 2,
+                "fullname": "Biology 101"
+            }
+        ],
         "hasdue": true,
         "totaldue": 3,
         "totalcards": 15,
@@ -144,11 +153,75 @@
         {{^iscourse}}
             <p class="mb-2"><small>{{#str}} nodecks, block_quickcards {{/str}}</small></p>
         {{/iscourse}}
-        <a href="{{mainurl}}" class="btn btn-sm btn-outline-primary">
+        <button type="button" class="btn btn-sm btn-outline-primary" data-action="quickcreate-deck" data-bs-toggle="modal" data-bs-target="#quickcreate-deck-modal-{{uniqid}}">
             <i class="fa fa-plus me-1" aria-hidden="true"></i> {{#str}} createdeck, block_quickcards {{/str}}
-        </a>
+        </button>
     </div>
     {{/hasdecks}}
+
+    <!-- Quick Create Deck Modal -->
+    <div class="modal fade" id="quickcreate-deck-modal-{{uniqid}}" tabindex="-1" aria-labelledby="quickcreate-deck-modal-title-{{uniqid}}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form class="quickcreate-deck-form" id="quickcreate-deck-form-{{uniqid}}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="quickcreate-deck-modal-title-{{uniqid}}">
+                            <i class="fa fa-plus-circle text-primary me-2" aria-hidden="true"></i>{{#str}} createdeck, block_quickcards {{/str}}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{#str}} close, block_quickcards {{/str}}"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger d-none quickcreate-deck-error-box mb-3" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label for="quickcreate-deck-name-{{uniqid}}" class="form-label fw-bold">
+                                {{#str}} deckname, block_quickcards {{/str}} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="quickcreate-deck-name-{{uniqid}}" name="name" required placeholder="{{#str}} deckname_help, block_quickcards {{/str}}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="quickcreate-deck-desc-{{uniqid}}" class="form-label fw-bold">
+                                {{#str}} deckdescription, block_quickcards {{/str}}
+                            </label>
+                            <textarea class="form-control" id="quickcreate-deck-desc-{{uniqid}}" name="description" rows="3"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="quickcreate-deck-course-{{uniqid}}" class="form-label fw-bold">
+                                {{#str}} coursedeck, block_quickcards {{/str}}
+                            </label>
+                            {{#iscourse}}
+                            <div class="p-2 border rounded bg-light d-flex align-items-center">
+                                <i class="fa fa-graduation-cap text-primary me-2" aria-hidden="true"></i>
+                                <span class="fw-bold">{{coursename}}</span>
+                                <input type="hidden" id="quickcreate-deck-course-{{uniqid}}" name="courseid" value="{{courseid}}">
+                            </div>
+                            {{/iscourse}}
+                            {{^iscourse}}
+                            <select class="form-select" id="quickcreate-deck-course-{{uniqid}}" name="courseid">
+                                <option value="0">{{#str}} generaldeck, block_quickcards {{/str}}</option>
+                                {{#courses}}
+                                    <option value="{{id}}">{{fullname}}</option>
+                                {{/courses}}
+                            </select>
+                            {{/iscourse}}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            {{#str}} cancel, block_quickcards {{/str}}
+                        </button>
+                        <button type="submit" class="btn btn-primary quickcreate-deck-submit-btn">
+                            <span class="spinner-border spinner-border-sm me-1 d-none quickcreate-deck-spinner" role="status" aria-hidden="true"></span>
+                            <i class="fa fa-save me-1 quickcreate-deck-btn-icon" aria-hidden="true"></i>
+                            <span class="quickcreate-deck-btn-text">{{#str}} save, block_quickcards {{/str}}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     {{#hasanydecks}}
     <!-- Quick Add Modal -->
@@ -209,10 +282,8 @@
     {{/hasanydecks}}
 </div>
 
-{{#hasanydecks}}
 {{#js}}
 require(['block_quickcards/quickadd'], function(QuickAdd) {
     QuickAdd.init('{{uniqid}}');
 });
 {{/js}}
-{{/hasanydecks}}

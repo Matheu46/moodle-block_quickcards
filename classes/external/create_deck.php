@@ -90,6 +90,7 @@ class create_deck extends external_api {
 
         return [
             'id' => $deckid,
+            'deckid' => $deckid,
             'name' => $trimmedname,
             'description' => $record->description,
             'courseid' => $record->courseid,
@@ -105,6 +106,7 @@ class create_deck extends external_api {
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'New deck ID.'),
+            'deckid' => new external_value(PARAM_INT, 'New deck ID alias.', VALUE_OPTIONAL),
             'name' => new external_value(PARAM_TEXT, 'Deck name.'),
             'description' => new external_value(PARAM_RAW, 'Deck description.'),
             'courseid' => new external_value(PARAM_INT, 'Course ID.'),

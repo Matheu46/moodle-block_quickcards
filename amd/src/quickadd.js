@@ -14,7 +14,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Quick add flashcard module for block_quickcards.
+ * Quick add flashcard and quick create deck module for block_quickcards.
  *
  * @module     block_quickcards/quickadd
  * @copyright  2026 Matheus Mathias
@@ -28,11 +28,11 @@ import {getString} from 'core/str';
 import {Modal} from 'bootstrap';
 
 /**
- * Initialize Quick Add modal and form handling for a block instance.
+ * Setup Quick Add Card modal handling.
  *
  * @param {string} uniqid Unique block instance ID.
  */
-export const init = (uniqid) => {
+const setupQuickAddCard = (uniqid) => {
     const modalEl = document.getElementById(`quickadd-modal-${uniqid}`);
     const form = document.getElementById(`quickadd-form-${uniqid}`);
 
@@ -40,8 +40,6 @@ export const init = (uniqid) => {
         return;
     }
 
-    // Move modal directly under document.body so it is never trapped behind
-    // the Bootstrap backdrop by a parent stacking context (e.g. course drawer or block sidebar).
     if (modalEl.parentNode !== document.body) {
         document.body.appendChild(modalEl);
     }
@@ -57,7 +55,6 @@ export const init = (uniqid) => {
         `#block-quickcards-${uniqid} [data-action="quickadd-card"]`
     );
 
-    // Explicit click handler to open the modal reliably in all contexts.
     if (triggerBtn) {
         triggerBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -68,14 +65,12 @@ export const init = (uniqid) => {
         });
     }
 
-    // Auto-focus the question input when modal opens.
     modalEl.addEventListener('shown.bs.modal', () => {
         if (questionInput) {
             questionInput.focus();
         }
     });
 
-    // Reset error box on modal hide.
     modalEl.addEventListener('hidden.bs.modal', () => {
         if (errorBox) {
             errorBox.classList.add('d-none');
@@ -124,7 +119,6 @@ export const init = (uniqid) => {
             return;
         }
 
-        // Show loading state.
         if (submitBtn) {
             submitBtn.disabled = true;
         }
@@ -147,22 +141,17 @@ export const init = (uniqid) => {
             },
         };
 
-        // Note: core/ajax.call returns a jQuery promise which does not support .finally().
-        // We invoke resetLoadingState() explicitly in both .then() and .catch().
         fetchMany([request])[0].then((response) => {
             resetLoadingState();
 
             if (response && response.success) {
-                // Hide modal.
                 const modal = Modal.getOrCreateInstance(modalEl);
                 if (modal) {
                     modal.hide();
                 }
 
-                // Reset form fields.
                 form.reset();
 
-                // Update deck card count in UI if visible.
                 const deckItem = document.querySelector(
                     `#block-quickcards-${uniqid} [data-deck-id="${deckId}"]`
                 );
@@ -198,4 +187,143 @@ export const init = (uniqid) => {
             }
         });
     });
+};
+
+/**
+ * Setup Quick Create Deck modal handling.
+ *
+ * @param {string} uniqid Unique block instance ID.
+ */
+const setupQuickCreateDeck = (uniqid) => {
+    const modalEl = document.getElementById(`quickcreate-deck-modal-${uniqid}`);
+    const form = document.getElementById(`quickcreate-deck-form-${uniqid}`);
+
+    if (!modalEl || !form) {
+        return;
+    }
+
+    if (modalEl.parentNode !== document.body) {
+        document.body.appendChild(modalEl);
+    }
+
+    const nameInput = document.getElementById(`quickcreate-deck-name-${uniqid}`);
+    const descInput = document.getElementById(`quickcreate-deck-desc-${uniqid}`);
+    const courseInput = document.getElementById(`quickcreate-deck-course-${uniqid}`);
+    const errorBox = form.querySelector('.quickcreate-deck-error-box');
+    const submitBtn = form.querySelector('.quickcreate-deck-submit-btn');
+    const spinner = form.querySelector('.quickcreate-deck-spinner');
+    const btnIcon = form.querySelector('.quickcreate-deck-btn-icon');
+
+    const triggerBtns = document.querySelectorAll(
+        `#block-quickcards-${uniqid} [data-action="quickcreate-deck"]`
+    );
+    triggerBtns.forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const modal = Modal.getOrCreateInstance(modalEl);
+            if (modal) {
+                modal.show();
+            }
+        });
+    });
+
+    modalEl.addEventListener('shown.bs.modal', () => {
+        if (nameInput) {
+            nameInput.focus();
+        }
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', () => {
+        if (errorBox) {
+            errorBox.classList.add('d-none');
+            errorBox.textContent = '';
+        }
+        resetLoadingState();
+    });
+
+    const resetLoadingState = () => {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+        }
+        if (spinner) {
+            spinner.classList.add('d-none');
+        }
+        if (btnIcon) {
+            btnIcon.classList.remove('d-none');
+        }
+    };
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const name = nameInput ? nameInput.value.trim() : '';
+        const description = descInput ? descInput.value.trim() : '';
+        const rawCourse = courseInput ? parseInt(courseInput.value, 10) : 0;
+        const courseid = isNaN(rawCourse) ? 0 : rawCourse;
+
+        if (!name) {
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+        }
+        if (spinner) {
+            spinner.classList.remove('d-none');
+        }
+        if (btnIcon) {
+            btnIcon.classList.add('d-none');
+        }
+        if (errorBox) {
+            errorBox.classList.add('d-none');
+        }
+
+        const request = {
+            methodname: 'block_quickcards_create_deck',
+            args: {
+                name: name,
+                description: description,
+                courseid: courseid,
+            },
+        };
+
+        fetchMany([request])[0].then((response) => {
+            const deckId = response ? (response.id || response.deckid) : null;
+
+            if (response && response.success && deckId) {
+                const modal = Modal.getOrCreateInstance(modalEl);
+                if (modal) {
+                    modal.hide();
+                }
+                form.reset();
+                window.location.href = M.cfg.wwwroot + '/blocks/quickcards/deck.php?id=' + deckId;
+            } else {
+                resetLoadingState();
+                if (errorBox) {
+                    errorBox.textContent = (response && response.message) || 'Error creating deck';
+                    errorBox.classList.remove('d-none');
+                }
+            }
+            return true;
+        }).catch((err) => {
+            resetLoadingState();
+
+            if (errorBox) {
+                errorBox.textContent = err.message || err.error || 'Server error';
+                errorBox.classList.remove('d-none');
+            } else {
+                Notification.exception(err);
+            }
+        });
+    });
+};
+
+/**
+ * Initialize Quick Add modal and Quick Create Deck modal for a block instance.
+ *
+ * @param {string} uniqid Unique block instance ID.
+ */
+export const init = (uniqid) => {
+    setupQuickAddCard(uniqid);
+    setupQuickCreateDeck(uniqid);
 };

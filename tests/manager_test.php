@@ -123,4 +123,47 @@ final class manager_test extends advanced_testcase {
         $this->expectExceptionMessage(get_string('noguest', 'error'));
         manager::require_access();
     }
+
+    /**
+     * Test get_due_cards_for_study retrieves cards and supports shuffling.
+     */
+    public function test_get_due_cards_for_study(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $deckid = $DB->insert_record('block_quickcards_decks', (object) [
+            'userid' => $user->id,
+            'name' => 'Chinese Numbers',
+            'courseid' => 0,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        for ($i = 1; $i <= 5; $i++) {
+            $DB->insert_record('block_quickcards_cards', (object) [
+                'deckid' => $deckid,
+                'userid' => $user->id,
+                'question' => "Number $i",
+                'answer' => "Answer $i",
+                'timecreated' => time(),
+                'timemodified' => time(),
+            ]);
+        }
+
+        // Ordered retrieval without shuffle.
+        $ordered = manager::get_due_cards_for_study((int) $user->id, (int) $deckid, false);
+        $this->assertCount(5, $ordered);
+        $this->assertSame('Number 1', $ordered[0]['question']);
+        $this->assertSame('Number 5', $ordered[4]['question']);
+
+        // Retrieval with shuffle.
+        $shuffled = manager::get_due_cards_for_study((int) $user->id, (int) $deckid, true);
+        $this->assertCount(5, $shuffled);
+
+        // Ensure all card questions are present regardless of order.
+        $questions = array_column($shuffled, 'question');
+        sort($questions);
+        $this->assertEquals(['Number 1', 'Number 2', 'Number 3', 'Number 4', 'Number 5'], $questions);
+    }
 }

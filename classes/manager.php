@@ -376,13 +376,14 @@ class manager {
     }
 
     /**
-     * Get cards due for review for study session.
+     * Get cards due for review for study session, randomized for effective active recall.
      *
      * @param int $userid User ID.
      * @param int $deckid Deck ID (0 for all decks).
+     * @param bool $shuffle Whether to randomize card order (defaults to true).
      * @return array
      */
-    public static function get_due_cards_for_study(int $userid, int $deckid = 0): array {
+    public static function get_due_cards_for_study(int $userid, int $deckid = 0, bool $shuffle = true): array {
         global $DB;
 
         $now = time();
@@ -426,6 +427,10 @@ class manager {
                 'intervaldays' => (int) ($card->intervaldays ?? 0),
                 'repetitions' => (int) ($card->repetitions ?? 0),
             ];
+        }
+
+        if ($shuffle && count($duecards) > 1) {
+            shuffle($duecards);
         }
 
         return $duecards;

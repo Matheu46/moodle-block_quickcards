@@ -18,6 +18,46 @@
     @template block_quickcards/view
 
     QuickCards main student dashboard template.
+
+    Example context (json):
+    {
+        "config": {
+            "wwwroot": "https://example.com"
+        },
+        "hasdecks": true,
+        "hasdue": true,
+        "totaldue": 3,
+        "totaldecks": 2,
+        "totalcards": 20,
+        "studyallurl": "https://example.com/blocks/quickcards/study.php",
+        "courses": [
+            {
+                "id": 0,
+                "fullname": "All courses",
+                "selected": true
+            },
+            {
+                "id": 2,
+                "fullname": "Web Development",
+                "selected": false
+            }
+        ],
+        "decks": [
+            {
+                "id": 1,
+                "name": "JavaScript Fundamentals",
+                "description": "Essential syntax and functions.",
+                "hascourse": true,
+                "coursename": "Web Development",
+                "cardcount": 10,
+                "duecount": 3,
+                "hasdue": true,
+                "viewurl": "https://example.com/blocks/quickcards/deck.php?id=1",
+                "studyurl": "https://example.com/blocks/quickcards/study.php?deckid=1"
+            }
+        ],
+        "sesskey": "sesskey123"
+    }
 }}
 <div class="quickcards-dashboard container-fluid px-0">
     <!-- Top Action Bar -->

@@ -18,6 +18,19 @@
     @template block_quickcards/study
 
     QuickCards active recall study session template.
+
+    Example context (json):
+    {
+        "hasdue": true,
+        "cardsjson": "[{\"id\":1,\"question\":\"What is mitochondria?\",\"answer\":\"Powerhouse of the cell\",\"repetitions\":0,\"easefactor\":2.5}]",
+        "backurl": "https://example.com/blocks/quickcards/view.php",
+        "hasdeck": true,
+        "totaldue": 1,
+        "deckname": "Cell Biology",
+        "deckid": 1,
+        "cardcount": 5,
+        "sesskey": "sesskey123"
+    }
 }}
 <div class="quickcards-study-session container px-0" style="max-width: 760px;">
     {{#hasdue}}

@@ -18,6 +18,26 @@
     @template block_quickcards/import_modal
 
     Modal dialog for importing a QuickCards deck from JSON or CSV/Anki/Quizlet.
+
+    Example context (json):
+    {
+        "config": {
+            "wwwroot": "https://example.com"
+        },
+        "sesskey": "sesskey123",
+        "courseoptions": [
+            {
+                "id": 0,
+                "fullname": "General (Not tied to a course)",
+                "selected": true
+            },
+            {
+                "id": 2,
+                "fullname": "Web Development",
+                "selected": false
+            }
+        ]
+    }
 }}
 <div class="modal fade" id="quickcards-import-modal" tabindex="-1" aria-labelledby="quickcards-import-modal-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">

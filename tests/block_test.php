@@ -32,8 +32,10 @@ use block_quickcards;
  * Unit tests for block_quickcards block instance.
  *
  * @package     block_quickcards
+ * @category    test
  * @copyright   2026 Matheus Mathias
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers      \block_quickcards
  */
 final class block_test extends advanced_testcase {
     /**

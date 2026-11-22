@@ -18,6 +18,14 @@
     @template block_quickcards/export_modal
 
     Modal dialog for exporting a QuickCards deck as JSON or CSV.
+
+    Example context (json):
+    {
+        "config": {
+            "wwwroot": "https://example.com"
+        },
+        "sesskey": "sesskey123"
+    }
 }}
 <div class="modal fade" id="quickcards-export-modal" tabindex="-1" aria-labelledby="quickcards-export-modal-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

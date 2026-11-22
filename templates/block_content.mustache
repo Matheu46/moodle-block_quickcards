@@ -34,6 +34,37 @@
     * deckoptions: array
     * mainurl: string
     * hasanydecks: bool
+
+    Example context (json):
+    {
+        "uniqid": "quickcards65d8a",
+        "iscourse": true,
+        "coursename": "Biology 101",
+        "hasdue": true,
+        "totaldue": 3,
+        "totalcards": 15,
+        "hasdecks": true,
+        "hasanydecks": true,
+        "decks": [
+            {
+                "id": 1,
+                "name": "Cell Biology",
+                "cardcount": 15,
+                "duecount": 3,
+                "hasdue": true,
+                "studyurl": "https://example.com/blocks/quickcards/study.php?deckid=1"
+            }
+        ],
+        "deckoptions": [
+            {
+                "id": 1,
+                "name": "Cell Biology",
+                "selected": true
+            }
+        ],
+        "mainurl": "https://example.com/blocks/quickcards/view.php",
+        "studyallurl": "https://example.com/blocks/quickcards/study.php"
+    }
 }}
 <div class="block-quickcards-content" id="block-quickcards-{{uniqid}}">
     {{#hasdue}}

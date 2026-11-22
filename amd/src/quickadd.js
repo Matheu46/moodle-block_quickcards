@@ -162,9 +162,6 @@ export const init = (uniqid) => {
                 // Reset form fields.
                 form.reset();
 
-                // Show success toast.
-                getString('cardsaved', 'block_quickcards').then(addToast).catch(Notification.exception);
-
                 // Update deck card count in UI if visible.
                 const deckItem = document.querySelector(
                     `#block-quickcards-${uniqid} [data-deck-id="${deckId}"]`
@@ -176,11 +173,20 @@ export const init = (uniqid) => {
                         countEl.textContent = (currentCount + 1).toString();
                     }
                 }
-            } else if (errorBox) {
+
+                return getString('cardsaved', 'block_quickcards');
+            }
+
+            if (errorBox) {
                 errorBox.textContent = (response && response.message) || 'Error creating card';
                 errorBox.classList.remove('d-none');
             }
-            return response;
+            return null;
+        }).then((savedMsg) => {
+            if (savedMsg) {
+                addToast(savedMsg);
+            }
+            return true;
         }).catch((err) => {
             resetLoadingState();
 

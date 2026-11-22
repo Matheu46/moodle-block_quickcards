@@ -56,7 +56,7 @@ const setupCardFilters = () => {
 
     if (!cardsContainer) {
         return {
-            refresh: () => {},
+            refresh: () => false,
         };
     }
 
@@ -425,284 +425,335 @@ export const init = () => {
     const moveCardIdInput = document.getElementById('quickcards-move-card-id');
     const moveTargetDeckSelect = document.getElementById('quickcards-move-target-deck');
 
-    // Document-level click handler for actions.
-    document.addEventListener('click', (e) => {
+    // Action executor helpers for confirmation dialogs.
+    const executeResetDeck = (id) => {
+        fetchMany([{
+            methodname: 'block_quickcards_reset_deck',
+            args: {id: id},
+        }])[0].then((res) => {
+            if (res.success) {
+                window.location.reload();
+            }
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const executeDeleteDeck = (id) => {
+        fetchMany([{
+            methodname: 'block_quickcards_delete_deck',
+            args: {id: id},
+        }])[0].then((res) => {
+            if (res.success) {
+                window.location.href = M.cfg.wwwroot + '/blocks/quickcards/view.php';
+            }
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const executeDeleteCard = (id) => {
+        fetchMany([{
+            methodname: 'block_quickcards_delete_card',
+            args: {id: id},
+        }])[0].then((res) => {
+            if (res.success) {
+                const cardEl = document.getElementById('card-item-' + id);
+                if (cardEl) {
+                    cardEl.remove();
+                    cardFilters.refresh();
+                } else {
+                    window.location.reload();
+                }
+            }
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    // Modal action openers.
+    const openCreateDeckModal = () => {
+        if (!deckForm) {
+            return;
+        }
+        deckForm.reset();
+        deckIdInput.value = '0';
+        getString('createdeck', 'block_quickcards').then((title) => {
+            if (deckModalTitle) {
+                deckModalTitle.textContent = title;
+            }
+            const modal = getModalInstance(deckModalEl);
+            if (modal) {
+                modal.show();
+            }
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const openImportDeckModal = () => {
+        if (importForm) {
+            importForm.reset();
+            loadedJsonContent = '';
+            if (importPreviewEl) {
+                importPreviewEl.classList.add('d-none');
+            }
+            if (importErrorEl) {
+                importErrorEl.classList.add('d-none');
+            }
+            if (importSubmitBtn) {
+                importSubmitBtn.disabled = true;
+            }
+        }
+        if (importCsvForm) {
+            importCsvForm.reset();
+            if (importCsvCountBadge) {
+                importCsvCountBadge.classList.add('d-none');
+            }
+            if (importCsvSubmitBtn) {
+                importCsvSubmitBtn.disabled = true;
+            }
+        }
+        const modal = getModalInstance(importModalEl);
+        if (modal) {
+            modal.show();
+        }
+    };
+
+    const openEditDeckModal = (btn) => {
+        if (!deckForm) {
+            return;
+        }
+        deckIdInput.value = btn.dataset.id;
+        deckNameInput.value = btn.dataset.name || '';
+        deckDescInput.value = btn.dataset.description || '';
+        if (deckCourseSelect) {
+            deckCourseSelect.value = btn.dataset.courseid || '0';
+        }
+
+        getString('editdeck', 'block_quickcards').then((title) => {
+            if (deckModalTitle) {
+                deckModalTitle.textContent = title;
+            }
+            const modal = getModalInstance(deckModalEl);
+            if (modal) {
+                modal.show();
+            }
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const openExportDeckModal = (btn) => {
+        if (exportDeckIdInput) {
+            exportDeckIdInput.value = btn.dataset.id || '0';
+        }
+        if (exportDeckNameEl) {
+            exportDeckNameEl.textContent = btn.dataset.name || '';
+        }
+        if (exportSesskeyInput && M.cfg && M.cfg.sesskey) {
+            exportSesskeyInput.value = M.cfg.sesskey;
+        }
+        if (exportContentOnlyRadio) {
+            exportContentOnlyRadio.checked = true;
+        }
+        if (exportFormatInput) {
+            exportFormatInput.value = 'json';
+        }
+        if (exportIncludeProgressInput) {
+            exportIncludeProgressInput.value = '0';
+        }
+
+        const modal = getModalInstance(exportModalEl);
+        if (modal) {
+            modal.show();
+        }
+    };
+
+    const promptResetDeck = (btn) => {
+        const id = parseInt(btn.dataset.id, 10);
+        const name = btn.dataset.name || '';
+
+        getStrings([
+            {key: 'resetdeck', component: 'block_quickcards'},
+            {key: 'confirmresetdeck', component: 'block_quickcards', param: name},
+            {key: 'resetprogress', component: 'block_quickcards'},
+            {key: 'cancel', component: 'block_quickcards'},
+        ]).then(([title, question, confirmLabel, cancelLabel]) => {
+            Notification.confirm(
+                title,
+                question,
+                confirmLabel,
+                cancelLabel,
+                () => executeResetDeck(id)
+            );
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const promptDeleteDeck = (btn) => {
+        const id = parseInt(btn.dataset.id, 10);
+
+        getStrings([
+            {key: 'deletedeck', component: 'block_quickcards'},
+            {key: 'confirmdeletedeck', component: 'block_quickcards'},
+            {key: 'delete', component: 'block_quickcards'},
+            {key: 'cancel', component: 'block_quickcards'},
+        ]).then(([title, question, deleteLabel, cancelLabel]) => {
+            Notification.confirm(
+                title,
+                question,
+                deleteLabel,
+                cancelLabel,
+                () => executeDeleteDeck(id)
+            );
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const openCreateCardModal = (btn) => {
+        if (!cardForm) {
+            return;
+        }
+        cardForm.reset();
+        cardIdInput.value = '0';
+        cardDeckIdInput.value = btn.dataset.deckid;
+
+        getString('addcard', 'block_quickcards').then((title) => {
+            if (cardModalTitle) {
+                cardModalTitle.textContent = title;
+            }
+            const modal = getModalInstance(cardModalEl);
+            if (modal) {
+                modal.show();
+            }
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const openEditCardModal = (btn) => {
+        if (!cardForm) {
+            return;
+        }
+        cardIdInput.value = btn.dataset.id;
+        cardQuestionInput.value = btn.dataset.question || '';
+        cardAnswerInput.value = btn.dataset.answer || '';
+
+        getString('editcard', 'block_quickcards').then((title) => {
+            if (cardModalTitle) {
+                cardModalTitle.textContent = title;
+            }
+            const modal = getModalInstance(cardModalEl);
+            if (modal) {
+                modal.show();
+            }
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const promptDeleteCard = (btn) => {
+        const id = parseInt(btn.dataset.id, 10);
+
+        getStrings([
+            {key: 'deletecard', component: 'block_quickcards'},
+            {key: 'confirmdeletecard', component: 'block_quickcards'},
+            {key: 'delete', component: 'block_quickcards'},
+            {key: 'cancel', component: 'block_quickcards'},
+        ]).then(([title, question, deleteLabel, cancelLabel]) => {
+            Notification.confirm(
+                title,
+                question,
+                deleteLabel,
+                cancelLabel,
+                () => executeDeleteCard(id)
+            );
+            return true;
+        }).catch(Notification.exception);
+    };
+
+    const openMoveCardModal = (btn) => {
+        if (moveCardIdInput) {
+            moveCardIdInput.value = btn.dataset.id;
+        }
+        const modal = getModalInstance(moveCardModalEl);
+        if (modal) {
+            modal.show();
+        }
+    };
+
+    const handleDeckClick = (e) => {
         const createDeckBtn = e.target.closest('[data-action="quickcards-create-deck"]');
         if (createDeckBtn) {
-            if (deckForm) {
-                deckForm.reset();
-                deckIdInput.value = '0';
-                getString('createdeck', 'block_quickcards').then((title) => {
-                    if (deckModalTitle) {
-                        deckModalTitle.textContent = title;
-                    }
-                    const modal = getModalInstance(deckModalEl);
-                    if (modal) {
-                        modal.show();
-                    }
-                    return true;
-                }).catch(Notification.exception);
-            }
-            return;
+            openCreateDeckModal();
+            return true;
         }
 
         const importDeckBtn = e.target.closest('[data-action="quickcards-import-deck"]');
         if (importDeckBtn) {
-            if (importForm) {
-                importForm.reset();
-                loadedJsonContent = '';
-                if (importPreviewEl) {
-                    importPreviewEl.classList.add('d-none');
-                }
-                if (importErrorEl) {
-                    importErrorEl.classList.add('d-none');
-                }
-                if (importSubmitBtn) {
-                    importSubmitBtn.disabled = true;
-                }
-            }
-            if (importCsvForm) {
-                importCsvForm.reset();
-                if (importCsvCountBadge) {
-                    importCsvCountBadge.classList.add('d-none');
-                }
-                if (importCsvSubmitBtn) {
-                    importCsvSubmitBtn.disabled = true;
-                }
-            }
-            const modal = getModalInstance(importModalEl);
-            if (modal) {
-                modal.show();
-            }
-            return;
+            openImportDeckModal();
+            return true;
         }
 
         const editDeckBtn = e.target.closest('[data-action="quickcards-edit-deck"]');
         if (editDeckBtn) {
             e.preventDefault();
-            const id = editDeckBtn.dataset.id;
-            const name = editDeckBtn.dataset.name || '';
-            const desc = editDeckBtn.dataset.description || '';
-            const courseid = editDeckBtn.dataset.courseid || '0';
-
-            if (deckForm) {
-                deckIdInput.value = id;
-                deckNameInput.value = name;
-                deckDescInput.value = desc;
-                if (deckCourseSelect) {
-                    deckCourseSelect.value = courseid;
-                }
-
-                getString('editdeck', 'block_quickcards').then((title) => {
-                    if (deckModalTitle) {
-                        deckModalTitle.textContent = title;
-                    }
-                    const modal = getModalInstance(deckModalEl);
-                    if (modal) {
-                        modal.show();
-                    }
-                    return true;
-                }).catch(Notification.exception);
-            }
-            return;
+            openEditDeckModal(editDeckBtn);
+            return true;
         }
 
         const exportDeckBtn = e.target.closest('[data-action="quickcards-export-deck"]');
         if (exportDeckBtn) {
             e.preventDefault();
-            const id = exportDeckBtn.dataset.id || '0';
-            const name = exportDeckBtn.dataset.name || '';
-
-            if (exportDeckIdInput) {
-                exportDeckIdInput.value = id;
-            }
-            if (exportDeckNameEl) {
-                exportDeckNameEl.textContent = name;
-            }
-            if (exportSesskeyInput && M.cfg && M.cfg.sesskey) {
-                exportSesskeyInput.value = M.cfg.sesskey;
-            }
-            if (exportContentOnlyRadio) {
-                exportContentOnlyRadio.checked = true;
-            }
-            if (exportFormatInput) {
-                exportFormatInput.value = 'json';
-            }
-            if (exportIncludeProgressInput) {
-                exportIncludeProgressInput.value = '0';
-            }
-
-            const modal = getModalInstance(exportModalEl);
-            if (modal) {
-                modal.show();
-            }
-            return;
+            openExportDeckModal(exportDeckBtn);
+            return true;
         }
 
         const resetDeckBtn = e.target.closest('[data-action="quickcards-reset-deck"]');
         if (resetDeckBtn) {
             e.preventDefault();
-            const id = parseInt(resetDeckBtn.dataset.id, 10);
-            const name = resetDeckBtn.dataset.name || '';
-
-            getStrings([
-                {key: 'resetdeck', component: 'block_quickcards'},
-                {key: 'confirmresetdeck', component: 'block_quickcards', param: name},
-                {key: 'resetprogress', component: 'block_quickcards'},
-                {key: 'cancel', component: 'block_quickcards'},
-            ]).then(([title, question, confirmLabel, cancelLabel]) => {
-                Notification.confirm(
-                    title,
-                    question,
-                    confirmLabel,
-                    cancelLabel,
-                    () => {
-                        fetchMany([{
-                            methodname: 'block_quickcards_reset_deck',
-                            args: {id: id},
-                        }])[0].then((res) => {
-                            if (res.success) {
-                                window.location.reload();
-                            }
-                            return true;
-                        }).catch(Notification.exception);
-                    }
-                );
-                return true;
-            }).catch(Notification.exception);
-            return;
+            promptResetDeck(resetDeckBtn);
+            return true;
         }
 
         const deleteDeckBtn = e.target.closest('[data-action="quickcards-delete-deck"]');
         if (deleteDeckBtn) {
             e.preventDefault();
-            const id = parseInt(deleteDeckBtn.dataset.id, 10);
-
-            getStrings([
-                {key: 'deletedeck', component: 'block_quickcards'},
-                {key: 'confirmdeletedeck', component: 'block_quickcards'},
-                {key: 'delete', component: 'block_quickcards'},
-                {key: 'cancel', component: 'block_quickcards'},
-            ]).then(([title, question, deleteLabel, cancelLabel]) => {
-                Notification.confirm(
-                    title,
-                    question,
-                    deleteLabel,
-                    cancelLabel,
-                    () => {
-                        fetchMany([{
-                            methodname: 'block_quickcards_delete_deck',
-                            args: {id: id},
-                        }])[0].then((res) => {
-                            if (res.success) {
-                                window.location.href = M.cfg.wwwroot + '/blocks/quickcards/view.php';
-                            }
-                            return true;
-                        }).catch(Notification.exception);
-                    }
-                );
-                return true;
-            }).catch(Notification.exception);
-            return;
+            promptDeleteDeck(deleteDeckBtn);
+            return true;
         }
 
+        return false;
+    };
+
+    const handleCardClick = (e) => {
         const createCardBtn = e.target.closest('[data-action="quickcards-create-card"]');
         if (createCardBtn) {
-            const deckid = createCardBtn.dataset.deckid;
-            if (cardForm) {
-                cardForm.reset();
-                cardIdInput.value = '0';
-                cardDeckIdInput.value = deckid;
-
-                getString('addcard', 'block_quickcards').then((title) => {
-                    if (cardModalTitle) {
-                        cardModalTitle.textContent = title;
-                    }
-                    const modal = getModalInstance(cardModalEl);
-                    if (modal) {
-                        modal.show();
-                    }
-                    return true;
-                }).catch(Notification.exception);
-            }
-            return;
+            openCreateCardModal(createCardBtn);
+            return true;
         }
 
         const editCardBtn = e.target.closest('[data-action="quickcards-edit-card"]');
         if (editCardBtn) {
             e.preventDefault();
-            const id = editCardBtn.dataset.id;
-            const question = editCardBtn.dataset.question || '';
-            const answer = editCardBtn.dataset.answer || '';
-
-            if (cardForm) {
-                cardIdInput.value = id;
-                cardQuestionInput.value = question;
-                cardAnswerInput.value = answer;
-
-                getString('editcard', 'block_quickcards').then((title) => {
-                    if (cardModalTitle) {
-                        cardModalTitle.textContent = title;
-                    }
-                    const modal = getModalInstance(cardModalEl);
-                    if (modal) {
-                        modal.show();
-                    }
-                    return true;
-                }).catch(Notification.exception);
-            }
-            return;
+            openEditCardModal(editCardBtn);
+            return true;
         }
 
         const deleteCardBtn = e.target.closest('[data-action="quickcards-delete-card"]');
         if (deleteCardBtn) {
             e.preventDefault();
-            const id = parseInt(deleteCardBtn.dataset.id, 10);
-
-            getStrings([
-                {key: 'deletecard', component: 'block_quickcards'},
-                {key: 'confirmdeletecard', component: 'block_quickcards'},
-                {key: 'delete', component: 'block_quickcards'},
-                {key: 'cancel', component: 'block_quickcards'},
-            ]).then(([title, question, deleteLabel, cancelLabel]) => {
-                Notification.confirm(
-                    title,
-                    question,
-                    deleteLabel,
-                    cancelLabel,
-                    () => {
-                        fetchMany([{
-                            methodname: 'block_quickcards_delete_card',
-                            args: {id: id},
-                        }])[0].then((res) => {
-                            if (res.success) {
-                                const cardEl = document.getElementById('card-item-' + id);
-                                if (cardEl) {
-                                    cardEl.remove();
-                                    cardFilters.refresh();
-                                } else {
-                                    window.location.reload();
-                                }
-                            }
-                            return true;
-                        }).catch(Notification.exception);
-                    }
-                );
-                return true;
-            }).catch(Notification.exception);
-            return;
+            promptDeleteCard(deleteCardBtn);
+            return true;
         }
 
         const moveCardBtn = e.target.closest('[data-action="quickcards-move-card"]');
         if (moveCardBtn) {
-            const id = moveCardBtn.dataset.id;
-            if (moveCardIdInput) {
-                moveCardIdInput.value = id;
-            }
-            const modal = getModalInstance(moveCardModalEl);
-            if (modal) {
-                modal.show();
-            }
+            openMoveCardModal(moveCardBtn);
+            return true;
+        }
+
+        return false;
+    };
+
+    // Document-level click handler for actions.
+    document.addEventListener('click', (e) => {
+        if (!handleDeckClick(e)) {
+            handleCardClick(e);
         }
     });
 

@@ -18,6 +18,57 @@
     @template block_quickcards/deck
 
     QuickCards individual deck card management template.
+
+    Example context (json):
+    {
+        "config": {
+            "wwwroot": "https://example.com"
+        },
+        "sesskey": "sesskey123",
+        "deck": {
+            "id": 1,
+            "name": "JavaScript Fundamentals",
+            "description": "Essential syntax and functions.",
+            "hascourse": true,
+            "coursename": "Web Development",
+            "courseid": 2,
+            "totalcards": 10,
+            "duecount": 3,
+            "hasdue": true
+        },
+        "hascards": true,
+        "cards": [
+            {
+                "id": 1,
+                "question": "What is a closure?",
+                "answer": "A function bundled with its lexical environment.",
+                "repetitions": 2,
+                "intervaldays": 6,
+                "statusbadge": "<span class=\"badge bg-info\">Learned</span>",
+                "nextreviewtext": "In 3 days",
+                "canedit": true
+            }
+        ],
+        "deckoptions": [
+            {
+                "id": 1,
+                "name": "JavaScript Fundamentals",
+                "selected": true
+            },
+            {
+                "id": 2,
+                "name": "CSS Mastery",
+                "selected": false
+            }
+        ],
+        "courses": [
+            {
+                "id": 2,
+                "fullname": "Web Development",
+                "selected": true
+            }
+        ]
+    }
 }}
 <div class="quickcards-deck-view container-fluid px-0">
     <!-- Deck Header Banner -->
@@ -29,7 +80,7 @@
                         <a href="{{config.wwwroot}}/blocks/quickcards/view.php" class="btn btn-outline-secondary btn-sm flex-shrink-0" title="{{#str}} backtodecks, block_quickcards {{/str}}">
                             <i class="fa fa-arrow-left" aria-hidden="true"></i>
                         </a>
-                        <h2 class="h3 mb-0 text-break">{{deck.name}}</h2>
+                        <h2 class="h3 mb-0 text-break">{{#deck.name}}{{deck.name}}{{/deck.name}}{{^deck.name}}{{#str}} deck, block_quickcards {{/str}}{{/deck.name}}</h2>
                         {{#deck.hascourse}}
                             <span class="badge text-bg-light border text-truncate" style="max-width: 250px;">
                                 <i class="fa fa-graduation-cap me-1" aria-hidden="true"></i> {{deck.coursename}}

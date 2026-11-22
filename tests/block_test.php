@@ -73,6 +73,7 @@ final class block_test extends advanced_testcase {
         $this->assertNotEmpty($content);
         $this->assertStringContainsString(get_string('nodecks', 'block_quickcards'), $content->text);
         $this->assertStringNotContainsString('data-action="quickadd-card"', $content->text);
+        $this->assertStringNotContainsString(get_string('alldone', 'block_quickcards'), $content->text);
     }
 
     /**
@@ -103,6 +104,7 @@ final class block_test extends advanced_testcase {
         $this->assertStringContainsString('quickadd-modal-', $content->text);
         $this->assertStringContainsString('Biologia Celular', $content->text);
         $this->assertStringContainsString('value="' . $deckid . '"', $content->text);
+        $this->assertStringContainsString(get_string('alldone', 'block_quickcards'), $content->text);
     }
 
     /**

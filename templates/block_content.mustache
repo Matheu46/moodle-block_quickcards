@@ -67,6 +67,7 @@
     }
 }}
 <div class="block-quickcards-content" id="block-quickcards-{{uniqid}}">
+    {{#hasanydecks}}
     {{#hasdue}}
     <div class="alert alert-warning d-flex align-items-center p-2 mb-2" role="alert">
         <i class="fa fa-bell me-2" aria-hidden="true"></i>
@@ -85,7 +86,6 @@
     </div>
     {{/hasdue}}
 
-    {{#hasanydecks}}
     <div class="quickcards-actions mb-3">
         <button type="button" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center"
                 data-action="quickadd-card"

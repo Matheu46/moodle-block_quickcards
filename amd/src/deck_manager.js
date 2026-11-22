@@ -903,8 +903,7 @@ export const init = () => {
                     const text = event.target.result;
                     const data = JSON.parse(text);
 
-                    if (!data || typeof data !== 'object' ||
-                        (data.format !== 'block_quickcards' && data.format !== 'local_quickcards')) {
+                    if (!data || typeof data !== 'object' || data.format !== 'block_quickcards') {
                         getString('invalidfileformat', 'block_quickcards').then((msg) => {
                             importErrorMsg.textContent = msg;
                             importErrorEl.classList.remove('d-none');

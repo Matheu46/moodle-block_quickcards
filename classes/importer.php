@@ -42,7 +42,7 @@ class importer {
             throw new moodle_exception('invalidjson', 'block_quickcards');
         }
 
-        if (empty($data['format']) || ($data['format'] !== exporter::FORMAT_IDENTIFIER && $data['format'] !== 'local_quickcards')) {
+        if (empty($data['format']) || $data['format'] !== exporter::FORMAT_IDENTIFIER) {
             throw new moodle_exception('invalidfileformat', 'block_quickcards');
         }
 

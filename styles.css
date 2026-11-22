@@ -36,6 +36,15 @@
     border-left-width: 4px;
 }
 
+.quickcards-dashboard .btn,
+.quickcards-deck-view .btn {
+    white-space: nowrap;
+}
+
+.quickcards-deck-view .dropdown-item {
+    cursor: pointer;
+}
+
 .quickcards-study-session .study-card {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     border-radius: 0.75rem;

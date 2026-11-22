@@ -23,15 +23,15 @@
     <!-- Deck Header Banner -->
     <div class="card border-0 shadow-sm bg-light mb-4">
         <div class="card-body p-4">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                <div>
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <a href="{{config.wwwroot}}/blocks/quickcards/view.php" class="btn btn-outline-secondary btn-sm" title="{{#str}} backtodecks, block_quickcards {{/str}}">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+                <div class="flex-grow-1 me-lg-3" style="min-width: 0;">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <a href="{{config.wwwroot}}/blocks/quickcards/view.php" class="btn btn-outline-secondary btn-sm flex-shrink-0" title="{{#str}} backtodecks, block_quickcards {{/str}}">
                             <i class="fa fa-arrow-left" aria-hidden="true"></i>
                         </a>
-                        <h2 class="h3 mb-0">{{deck.name}}</h2>
+                        <h2 class="h3 mb-0 text-break">{{deck.name}}</h2>
                         {{#deck.hascourse}}
-                            <span class="badge text-bg-light border">
+                            <span class="badge text-bg-light border text-truncate" style="max-width: 250px;">
                                 <i class="fa fa-graduation-cap me-1" aria-hidden="true"></i> {{deck.coursename}}
                             </span>
                         {{/deck.hascourse}}
@@ -42,27 +42,46 @@
                         </div>
                     {{/deck.description}}
                 </div>
-                <div class="d-flex gap-2 align-items-center">
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-start justify-content-lg-end flex-shrink-0">
                     {{#deck.hascards}}
-                        <a href="{{deck.studyurl}}" class="btn {{#deck.hasdue}}btn-success{{/deck.hasdue}}{{^deck.hasdue}}btn-outline-primary{{/deck.hasdue}}">
+                        <a href="{{deck.studyurl}}" class="btn {{#deck.hasdue}}btn-success{{/deck.hasdue}}{{^deck.hasdue}}btn-outline-primary{{/deck.hasdue}} text-nowrap">
                             <i class="fa fa-play me-1" aria-hidden="true"></i> {{#str}} studydeck, block_quickcards {{/str}}
                             {{#deck.hasdue}}({{deck.duecount}}){{/deck.hasdue}}
                         </a>
                     {{/deck.hascards}}
-                    <button type="button" class="btn btn-primary" data-action="quickcards-create-card" data-bs-toggle="modal" data-bs-target="#quickcards-card-modal" data-deckid="{{deck.id}}">
+                    <button type="button" class="btn btn-primary text-nowrap" data-action="quickcards-create-card" data-bs-toggle="modal" data-bs-target="#quickcards-card-modal" data-deckid="{{deck.id}}">
                         <i class="fa fa-plus me-1" aria-hidden="true"></i> {{#str}} addcard, block_quickcards {{/str}}
                     </button>
-                    <button type="button" class="btn btn-outline-secondary" data-action="quickcards-edit-deck" data-bs-toggle="modal" data-bs-target="#quickcards-deck-modal" data-id="{{deck.id}}" data-name="{{deck.rawname}}" data-description="{{deck.rawdescription}}" data-courseid="{{deck.courseid}}" title="{{#str}} editdeck, block_quickcards {{/str}}">
-                        <i class="fa fa-pencil" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" data-action="quickcards-export-deck" data-bs-toggle="modal" data-bs-target="#quickcards-export-modal" data-id="{{deck.id}}" data-name="{{deck.rawname}}" title="{{#str}} exportdeck, block_quickcards {{/str}}">
-                        <i class="fa fa-download text-info" aria-hidden="true"></i>
-                    </button>
-                    {{#deck.hascards}}
-                        <button type="button" class="btn btn-outline-secondary" data-action="quickcards-reset-deck" data-id="{{deck.id}}" data-name="{{deck.rawname}}" title="{{#str}} resetprogress, block_quickcards {{/str}}">
-                            <i class="fa fa-refresh text-warning" aria-hidden="true"></i>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle text-nowrap" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{#str}} actions, block_quickcards {{/str}}">
+                            <i class="fa fa-cog me-1" aria-hidden="true"></i> {{#str}} actions, block_quickcards {{/str}}
                         </button>
-                    {{/deck.hascards}}
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li>
+                                <a class="dropdown-item" href="#" data-action="quickcards-edit-deck" data-bs-toggle="modal" data-bs-target="#quickcards-deck-modal" data-id="{{deck.id}}" data-name="{{deck.rawname}}" data-description="{{deck.rawdescription}}" data-courseid="{{deck.courseid}}">
+                                    <i class="fa fa-pencil me-2 text-primary" aria-hidden="true"></i> {{#str}} editdeck, block_quickcards {{/str}}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" data-action="quickcards-export-deck" data-bs-toggle="modal" data-bs-target="#quickcards-export-modal" data-id="{{deck.id}}" data-name="{{deck.rawname}}">
+                                    <i class="fa fa-download me-2 text-info" aria-hidden="true"></i> {{#str}} exportdeck, block_quickcards {{/str}}
+                                </a>
+                            </li>
+                            {{#deck.hascards}}
+                                <li>
+                                    <a class="dropdown-item" href="#" data-action="quickcards-reset-deck" data-id="{{deck.id}}" data-name="{{deck.rawname}}">
+                                        <i class="fa fa-refresh me-2 text-warning" aria-hidden="true"></i> {{#str}} resetprogress, block_quickcards {{/str}}
+                                    </a>
+                                </li>
+                            {{/deck.hascards}}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" data-action="quickcards-delete-deck" data-id="{{deck.id}}" data-name="{{deck.rawname}}">
+                                    <i class="fa fa-trash me-2" aria-hidden="true"></i> {{#str}} deletedeck, block_quickcards {{/str}}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>

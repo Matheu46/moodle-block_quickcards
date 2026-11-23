@@ -28,6 +28,29 @@ import {getString} from 'core/str';
 import {Modal} from 'bootstrap';
 
 /**
+ * Display an error message in an error box, falling back to a localized string key.
+ *
+ * @param {HTMLElement|null} errorBox Error container element.
+ * @param {string|null} message Explicit message if available.
+ * @param {string} fallbackKey String key in block_quickcards.
+ */
+const showFormError = (errorBox, message, fallbackKey) => {
+    if (!errorBox) {
+        return;
+    }
+    if (message) {
+        errorBox.textContent = message;
+        errorBox.classList.remove('d-none');
+        return;
+    }
+    getString(fallbackKey, 'block_quickcards').then((msg) => {
+        errorBox.textContent = msg;
+        errorBox.classList.remove('d-none');
+        return true;
+    }).catch(Notification.exception);
+};
+
+/**
  * Setup Quick Add Card modal handling.
  *
  * @param {string} uniqid Unique block instance ID.
@@ -166,18 +189,7 @@ const setupQuickAddCard = (uniqid) => {
                 return getString('cardsaved', 'block_quickcards');
             }
 
-            if (errorBox) {
-                if (response && response.message) {
-                    errorBox.textContent = response.message;
-                    errorBox.classList.remove('d-none');
-                } else {
-                    getString('errorcreatingcard', 'block_quickcards').then((msg) => {
-                        errorBox.textContent = msg;
-                        errorBox.classList.remove('d-none');
-                        return true;
-                    }).catch(Notification.exception);
-                }
-            }
+            showFormError(errorBox, response && response.message, 'errorcreatingcard');
             return null;
         }).then((savedMsg) => {
             if (savedMsg) {
@@ -188,16 +200,7 @@ const setupQuickAddCard = (uniqid) => {
             resetLoadingState();
 
             if (errorBox) {
-                if (err.message || err.error) {
-                    errorBox.textContent = err.message || err.error;
-                    errorBox.classList.remove('d-none');
-                } else {
-                    getString('servererror', 'block_quickcards').then((msg) => {
-                        errorBox.textContent = msg;
-                        errorBox.classList.remove('d-none');
-                        return true;
-                    }).catch(Notification.exception);
-                }
+                showFormError(errorBox, err.message || err.error, 'servererror');
             } else {
                 Notification.exception(err);
             }
@@ -315,34 +318,14 @@ const setupQuickCreateDeck = (uniqid) => {
                 window.location.href = M.cfg.wwwroot + '/blocks/quickcards/deck.php?id=' + deckId;
             } else {
                 resetLoadingState();
-                if (errorBox) {
-                    if (response && response.message) {
-                        errorBox.textContent = response.message;
-                        errorBox.classList.remove('d-none');
-                    } else {
-                        getString('errorcreatingdeck', 'block_quickcards').then((msg) => {
-                            errorBox.textContent = msg;
-                            errorBox.classList.remove('d-none');
-                            return true;
-                        }).catch(Notification.exception);
-                    }
-                }
+                showFormError(errorBox, response && response.message, 'errorcreatingdeck');
             }
             return true;
         }).catch((err) => {
             resetLoadingState();
 
             if (errorBox) {
-                if (err.message || err.error) {
-                    errorBox.textContent = err.message || err.error;
-                    errorBox.classList.remove('d-none');
-                } else {
-                    getString('servererror', 'block_quickcards').then((msg) => {
-                        errorBox.textContent = msg;
-                        errorBox.classList.remove('d-none');
-                        return true;
-                    }).catch(Notification.exception);
-                }
+                showFormError(errorBox, err.message || err.error, 'servererror');
             } else {
                 Notification.exception(err);
             }

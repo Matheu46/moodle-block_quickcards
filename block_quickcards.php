@@ -59,6 +59,15 @@ class block_quickcards extends block_base {
     }
 
     /**
+     * Indicates that the block has a global settings page (settings.php).
+     *
+     * @return bool
+     */
+    public function has_config() {
+        return true;
+    }
+
+    /**
      * Generates and returns the block contents.
      *
      * @return stdClass|null

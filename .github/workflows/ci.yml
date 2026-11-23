@@ -43,6 +43,9 @@ jobs:
         with:
           path: plugin
 
+      - name: Ensure plugin permissions are writable
+        run: chmod -R u+w plugin
+
       - name: Setup PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@v2
         with:

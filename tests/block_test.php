@@ -54,6 +54,8 @@ final class block_test extends advanced_testcase {
 
         $block = \block_instance('quickcards');
         $this->assertInstanceOf(block_quickcards::class, $block);
+        $this->assertTrue($block->has_config());
+        $this->assertFalse($block->instance_allow_multiple());
 
         $content = $block->get_content();
         $this->assertNotEmpty($content);

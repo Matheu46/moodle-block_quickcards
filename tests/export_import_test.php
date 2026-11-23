@@ -381,4 +381,173 @@ final class export_import_test extends advanced_testcase {
         $this->expectException(moodle_exception::class);
         import_csv::execute('Guest Deck', "Q1\tA1", 0, 'tab');
     }
+
+    /**
+     * Test importing JSON cards into an existing deck skipping duplicates.
+     */
+    public function test_import_json_into_existing_deck_skip_duplicate(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $deck = create_deck::execute('My Existing Deck', 'Initial description', 0);
+        $card1 = create_card::execute($deck['id'], 'What is mitochondria?', 'Powerhouse of the cell');
+        submit_review::execute($card1['id'], sm2::RATING_EASY);
+
+        $payload = json_encode([
+            'format' => exporter::FORMAT_IDENTIFIER,
+            'version' => exporter::FORMAT_VERSION,
+            'includesprogress' => false,
+            'deck' => ['name' => 'Ignored Name'],
+            'cards' => [
+                ['question' => 'What is mitochondria?', 'answer' => 'New powerhouse definition'],
+                ['question' => 'What is ribosome?', 'answer' => 'Protein factory'],
+            ],
+        ]);
+
+        $res = import_deck::execute($payload, 0, false, $deck['id'], 'skip');
+        $res = external_api::clean_returnvalue(import_deck::execute_returns(), $res);
+
+        $this->assertTrue($res['success']);
+        $this->assertEquals($deck['id'], $res['deckid']);
+        $this->assertEquals('My Existing Deck', $res['deckname']);
+        $this->assertEquals(1, $res['cardscount']);
+        $this->assertEquals(1, $res['skippedcount']);
+        $this->assertEquals(0, $res['updatedcount']);
+
+        // Check cards in deck.
+        $cards = array_values($DB->get_records('block_quickcards_cards', ['deckid' => $deck['id']], 'id ASC'));
+        $this->assertCount(2, $cards);
+
+        // First card answer was NOT modified because skip was used.
+        $this->assertEquals('Powerhouse of the cell', $cards[0]->answer);
+        $this->assertEquals('What is ribosome?', $cards[1]->question);
+        $this->assertEquals('Protein factory', $cards[1]->answer);
+    }
+
+    /**
+     * Test importing JSON cards into an existing deck updating duplicate card answers and keeping review progress.
+     */
+    public function test_import_json_into_existing_deck_update_duplicate(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $deck = create_deck::execute('Science Deck', '', 0);
+        $card1 = create_card::execute($deck['id'], 'Light speed', '300,000 km/s');
+        $reviewbefore = submit_review::execute($card1['id'], sm2::RATING_GOOD);
+
+        $payload = json_encode([
+            'format' => exporter::FORMAT_IDENTIFIER,
+            'version' => exporter::FORMAT_VERSION,
+            'includesprogress' => false,
+            'deck' => ['name' => 'Science Deck'],
+            'cards' => [
+                ['question' => 'Light speed', 'answer' => 'Approx. 299,792,458 m/s'],
+            ],
+        ]);
+
+        $res = import_deck::execute($payload, 0, false, $deck['id'], 'update');
+        $res = external_api::clean_returnvalue(import_deck::execute_returns(), $res);
+
+        $this->assertTrue($res['success']);
+        $this->assertEquals(0, $res['cardscount']);
+        $this->assertEquals(1, $res['updatedcount']);
+        $this->assertEquals(0, $res['skippedcount']);
+
+        // Card answer updated.
+        $updatedcard = $DB->get_record('block_quickcards_cards', ['id' => $card1['id']], '*', MUST_EXIST);
+        $this->assertEquals('Approx. 299,792,458 m/s', $updatedcard->answer);
+
+        // Review state was preserved.
+        $reviewafter = $DB->get_record('block_quickcards_reviews', ['cardid' => $card1['id']], '*', MUST_EXIST);
+        $this->assertEquals($reviewbefore['repetitions'], (int) $reviewafter->repetitions);
+        $this->assertEquals($reviewbefore['intervaldays'], (int) $reviewafter->intervaldays);
+    }
+
+    /**
+     * Test importing JSON cards into an existing deck allowing duplicates.
+     */
+    public function test_import_json_into_existing_deck_allow_duplicate(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $deck = create_deck::execute('Duplicates Deck', '', 0);
+        create_card::execute($deck['id'], 'Term', 'Definition A');
+
+        $payload = json_encode([
+            'format' => exporter::FORMAT_IDENTIFIER,
+            'version' => exporter::FORMAT_VERSION,
+            'includesprogress' => false,
+            'deck' => ['name' => 'Duplicates Deck'],
+            'cards' => [
+                ['question' => 'Term', 'answer' => 'Definition B'],
+            ],
+        ]);
+
+        $res = import_deck::execute($payload, 0, false, $deck['id'], 'allow');
+        $res = external_api::clean_returnvalue(import_deck::execute_returns(), $res);
+
+        $this->assertTrue($res['success']);
+        $this->assertEquals(1, $res['cardscount']);
+        $this->assertEquals(0, $res['skippedcount']);
+        $this->assertEquals(0, $res['updatedcount']);
+
+        $cards = $DB->get_records('block_quickcards_cards', ['deckid' => $deck['id']]);
+        $this->assertCount(2, $cards);
+    }
+
+    /**
+     * Test importing CSV cards into an existing deck.
+     */
+    public function test_import_csv_into_existing_deck(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $deck = create_deck::execute('Language Deck', '', 0);
+        create_card::execute($deck['id'], 'Hello', 'Olá');
+
+        $csv = "Hello\tOi\nGoodbye\tAdeus\nThank you\tObrigado";
+
+        $res = import_csv::execute('', $csv, 0, 'tab', $deck['id'], 'skip');
+        $res = external_api::clean_returnvalue(import_csv::execute_returns(), $res);
+
+        $this->assertTrue($res['success']);
+        $this->assertEquals($deck['id'], $res['deckid']);
+        $this->assertEquals('Language Deck', $res['deckname']);
+        $this->assertEquals(2, $res['cardscount']);
+        $this->assertEquals(1, $res['skippedcount']);
+
+        $cards = $DB->get_records('block_quickcards_cards', ['deckid' => $deck['id']]);
+        $this->assertCount(3, $cards);
+    }
+
+    /**
+     * Test importing cards into another user's deck is forbidden.
+     */
+    public function test_import_existing_deck_user_isolation(): void {
+        $this->resetAfterTest();
+
+        $usera = $this->getDataGenerator()->create_user();
+        $userb = $this->getDataGenerator()->create_user();
+
+        $this->setUser($usera);
+        $deck = create_deck::execute('User A Deck', '', 0);
+
+        // Switch to User B and try to import into User A's deck.
+        $this->setUser($userb);
+
+        $this->expectException(dml_missing_record_exception::class);
+        import_csv::execute('', "Foreign Q\tForeign A", 0, 'tab', $deck['id'], 'skip');
+    }
 }

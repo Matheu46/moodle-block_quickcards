@@ -66,6 +66,13 @@ $templatecontext = [
     'hascourses' => !empty($courses),
     'otherdecks' => $otherdecks,
     'hasotherdecks' => !empty($otherdecks),
+    'userdecks' => [
+        [
+            'id' => (int) $deck['id'],
+            'name' => $deck['name'],
+        ],
+    ],
+    'hasuserdecks' => true,
     'sesskey' => sesskey(),
 ];
 

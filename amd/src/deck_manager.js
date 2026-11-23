@@ -383,6 +383,8 @@ export const init = () => {
     const importSubmitBtn = document.getElementById('quickcards-import-submit-btn');
 
     let loadedJsonContent = '';
+    let currentImportTargetDeckId = 0;
+    let currentImportTargetDeckName = '';
 
     // Export Deck form fields.
     const exportForm = document.getElementById('quickcards-export-form');
@@ -487,7 +489,228 @@ export const init = () => {
         }).catch(Notification.exception);
     };
 
-    const openImportDeckModal = () => {
+    /**
+     * Get target deck ID for import based on current modal mode or selected radio.
+     *
+     * @param {string} mode Format mode: 'json' or 'csv'.
+     * @return {number} Target deck ID (0 for new deck).
+     */
+    const getImportTargetDeckId = (mode) => {
+        if (currentImportTargetDeckId > 0) {
+            return currentImportTargetDeckId;
+        }
+        const destExisting = document.getElementById(`quickcards-import-${mode}-dest-existing`);
+        if (destExisting && destExisting.checked) {
+            const sel = document.getElementById(`quickcards-import-${mode}-deck-select`);
+            return sel ? parseInt(sel.value, 10) : 0;
+        }
+        return 0;
+    };
+
+    /**
+     * Get duplicate action selected in the import modal.
+     *
+     * @param {string} mode Format mode: 'json' or 'csv'.
+     * @return {string} 'skip', 'update', or 'allow'.
+     */
+    const getDuplicateAction = (mode) => {
+        const dupRadio = document.querySelector(`input[name="quickcards-import-${mode}-dup"]:checked`);
+        return dupRadio ? dupRadio.value : 'skip';
+    };
+
+    /**
+     * Live preview and validation for CSV import.
+     */
+    const updateCsvPreview = () => {
+        if (!importCsvTextArea || !importCsvSubmitBtn) {
+            return;
+        }
+        const raw = importCsvTextArea.value.trim();
+        const deckName = importCsvNameInput ? importCsvNameInput.value.trim() : '';
+
+        if (!raw) {
+            if (importCsvCountBadge) {
+                importCsvCountBadge.classList.add('d-none');
+            }
+            importCsvSubmitBtn.disabled = true;
+            return;
+        }
+
+        const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+        const mode = importCsvDelimiterSelect ? importCsvDelimiterSelect.value : 'auto';
+        let sep = ',';
+        if (mode === 'tab') {
+            sep = '\t';
+        } else if (mode === 'semicolon') {
+            sep = ';';
+        } else if (mode === 'comma') {
+            sep = ',';
+        } else if (lines.length > 0) {
+            if (lines[0].includes('\t')) {
+                sep = '\t';
+            } else if (lines[0].includes(';')) {
+                sep = ';';
+            }
+        }
+
+        const headerQuestions = ['question', 'front', 'term', 'pergunta', 'frente', 'termo'];
+        const headerAnswers = ['answer', 'back', 'definition', 'resposta', 'verso', 'definicao', 'definição'];
+        let count = 0;
+
+        lines.forEach((line, idx) => {
+            const parts = line.split(sep);
+            if (parts.length < 2) {
+                return;
+            }
+            const q = parts[0].replace(/^"|"$/g, '').trim();
+            const a = parts[1].replace(/^"|"$/g, '').trim();
+            if (!q || !a) {
+                return;
+            }
+            if (idx === 0 && headerQuestions.includes(q.toLowerCase()) && headerAnswers.includes(a.toLowerCase())) {
+                return;
+            }
+            count++;
+        });
+
+        if (importCsvCountBadge) {
+            if (count > 0) {
+                getString('csvcardsdetected', 'block_quickcards', count).then((label) => {
+                    importCsvCountBadge.textContent = label;
+                    importCsvCountBadge.classList.remove('d-none');
+                    return true;
+                }).catch(() => {
+                    importCsvCountBadge.textContent = `${count} cards`;
+                    importCsvCountBadge.classList.remove('d-none');
+                });
+            } else {
+                importCsvCountBadge.classList.add('d-none');
+            }
+        }
+
+        const isExisting = (currentImportTargetDeckId > 0) || (
+            document.getElementById('quickcards-import-csv-dest-existing') &&
+            document.getElementById('quickcards-import-csv-dest-existing').checked
+        );
+
+        if (isExisting) {
+            const destDeckId = getImportTargetDeckId('csv');
+            importCsvSubmitBtn.disabled = (count === 0 || !destDeckId);
+        } else {
+            importCsvSubmitBtn.disabled = (count === 0 || deckName === '');
+        }
+    };
+
+    /**
+     * Update import modal UI based on whether destination is new or existing deck.
+     */
+    const updateImportDestinationUI = () => {
+        const titleEl = document.getElementById('quickcards-import-modal-title-text');
+        const targetBanners = document.querySelectorAll('.quickcards-import-target-banner');
+        const targetNames = document.querySelectorAll('.quickcards-import-target-name');
+        const destChoices = document.querySelectorAll('.quickcards-import-dest-choice');
+
+        const jsonExistingWrap = document.getElementById('quickcards-import-json-existing-select-wrap');
+        const jsonDupWrap = document.getElementById('quickcards-import-json-duplicate-wrap');
+        const jsonCourseWrap = document.getElementById('quickcards-import-json-course-wrap');
+
+        const csvNameWrap = document.getElementById('quickcards-import-csv-name-wrap');
+        const csvExistingWrap = document.getElementById('quickcards-import-csv-existing-select-wrap');
+        const csvDupWrap = document.getElementById('quickcards-import-csv-duplicate-wrap');
+        const csvCourseWrap = document.getElementById('quickcards-import-csv-course-wrap');
+
+        const isDirectDeck = (currentImportTargetDeckId > 0);
+
+        if (isDirectDeck) {
+            getString('importcards', 'block_quickcards').then((title) => {
+                if (titleEl) {
+                    titleEl.textContent = title;
+                }
+                return true;
+            }).catch(Notification.exception);
+
+            getString('importcardsfor', 'block_quickcards', currentImportTargetDeckName).then((label) => {
+                targetNames.forEach((el) => {
+                    el.textContent = label;
+                });
+                return true;
+            }).catch(() => {
+                targetNames.forEach((el) => {
+                    el.textContent = currentImportTargetDeckName;
+                });
+            });
+
+            targetBanners.forEach((el) => el.classList.remove('d-none'));
+            destChoices.forEach((el) => el.classList.add('d-none'));
+
+            if (jsonDupWrap) {
+                jsonDupWrap.classList.remove('d-none');
+            }
+            if (jsonCourseWrap) {
+                jsonCourseWrap.classList.add('d-none');
+            }
+
+            if (csvDupWrap) {
+                csvDupWrap.classList.remove('d-none');
+            }
+            if (csvNameWrap) {
+                csvNameWrap.classList.add('d-none');
+            }
+            if (csvCourseWrap) {
+                csvCourseWrap.classList.add('d-none');
+            }
+        } else {
+            getString('importdeck', 'block_quickcards').then((title) => {
+                if (titleEl) {
+                    titleEl.textContent = title;
+                }
+                return true;
+            }).catch(Notification.exception);
+
+            targetBanners.forEach((el) => el.classList.add('d-none'));
+            destChoices.forEach((el) => el.classList.remove('d-none'));
+
+            const jsonDestExisting = document.getElementById('quickcards-import-json-dest-existing');
+            const isJsonExisting = jsonDestExisting && jsonDestExisting.checked;
+            if (jsonExistingWrap) {
+                jsonExistingWrap.classList.toggle('d-none', !isJsonExisting);
+            }
+            if (jsonDupWrap) {
+                jsonDupWrap.classList.toggle('d-none', !isJsonExisting);
+            }
+            if (jsonCourseWrap) {
+                jsonCourseWrap.classList.toggle('d-none', isJsonExisting);
+            }
+
+            const csvDestExisting = document.getElementById('quickcards-import-csv-dest-existing');
+            const isCsvExisting = csvDestExisting && csvDestExisting.checked;
+            if (csvExistingWrap) {
+                csvExistingWrap.classList.toggle('d-none', !isCsvExisting);
+            }
+            if (csvDupWrap) {
+                csvDupWrap.classList.toggle('d-none', !isCsvExisting);
+            }
+            if (csvNameWrap) {
+                csvNameWrap.classList.toggle('d-none', isCsvExisting);
+            }
+            if (csvCourseWrap) {
+                csvCourseWrap.classList.toggle('d-none', isCsvExisting);
+            }
+        }
+
+        updateCsvPreview();
+    };
+
+    /**
+     * Open the import modal, optionally pre-configured for a specific target deck.
+     *
+     * @param {number} targetDeckId Destination deck ID (0 for general import).
+     * @param {string} targetDeckName Destination deck name.
+     */
+    const openImportDeckModal = (targetDeckId = 0, targetDeckName = '') => {
+        currentImportTargetDeckId = targetDeckId ? parseInt(targetDeckId, 10) : 0;
+        currentImportTargetDeckName = targetDeckName || '';
+
         if (importForm) {
             importForm.reset();
             loadedJsonContent = '';
@@ -510,6 +733,9 @@ export const init = () => {
                 importCsvSubmitBtn.disabled = true;
             }
         }
+
+        updateImportDestinationUI();
+
         const modal = getModalInstance(importModalEl);
         if (modal) {
             modal.show();
@@ -685,7 +911,16 @@ export const init = () => {
 
         const importDeckBtn = e.target.closest('[data-action="quickcards-import-deck"]');
         if (importDeckBtn) {
-            openImportDeckModal();
+            openImportDeckModal(0, '');
+            return true;
+        }
+
+        const importCardsBtn = e.target.closest('[data-action="quickcards-import-cards"]');
+        if (importCardsBtn) {
+            e.preventDefault();
+            const deckId = importCardsBtn.dataset.deckid || 0;
+            const deckName = importCardsBtn.dataset.deckname || '';
+            openImportDeckModal(deckId, deckName);
             return true;
         }
 
@@ -960,9 +1195,20 @@ export const init = () => {
                 return;
             }
 
+            const targetDeckId = getImportTargetDeckId('json');
+            const isExisting = (currentImportTargetDeckId > 0) || (
+                document.getElementById('quickcards-import-json-dest-existing') &&
+                document.getElementById('quickcards-import-json-dest-existing').checked
+            );
+
+            if (isExisting && !targetDeckId) {
+                return;
+            }
+
             importSubmitBtn.disabled = true;
             const courseid = importCourseSelect ? parseInt(importCourseSelect.value, 10) : 0;
             const restoreprogress = importRestoreProgressCheck ? importRestoreProgressCheck.checked : false;
+            const duplicateaction = getDuplicateAction('json');
 
             fetchMany([{
                 methodname: 'block_quickcards_import_deck',
@@ -970,6 +1216,8 @@ export const init = () => {
                     jsoncontent: loadedJsonContent,
                     courseid: courseid,
                     restoreprogress: restoreprogress,
+                    deckid: targetDeckId,
+                    duplicateaction: duplicateaction,
                 },
             }])[0].then((res) => {
                 if (res.success && res.deckid) {
@@ -977,7 +1225,11 @@ export const init = () => {
                     if (modal) {
                         modal.hide();
                     }
-                    window.location.href = M.cfg.wwwroot + '/blocks/quickcards/deck.php?id=' + res.deckid;
+                    if (window.location.href.includes('deck.php?id=' + res.deckid)) {
+                        window.location.reload();
+                    } else {
+                        window.location.href = M.cfg.wwwroot + '/blocks/quickcards/deck.php?id=' + res.deckid;
+                    }
                 }
                 return true;
             }).catch((err) => {
@@ -986,77 +1238,6 @@ export const init = () => {
             });
         });
     }
-
-    // Helper to count valid CSV/TSV card lines for live preview.
-    const updateCsvPreview = () => {
-        if (!importCsvTextArea || !importCsvSubmitBtn) {
-            return;
-        }
-        const raw = importCsvTextArea.value.trim();
-        const deckName = importCsvNameInput ? importCsvNameInput.value.trim() : '';
-
-        if (!raw) {
-            if (importCsvCountBadge) {
-                importCsvCountBadge.classList.add('d-none');
-            }
-            importCsvSubmitBtn.disabled = true;
-            return;
-        }
-
-        const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
-        const mode = importCsvDelimiterSelect ? importCsvDelimiterSelect.value : 'auto';
-        let sep = ',';
-        if (mode === 'tab') {
-            sep = '\t';
-        } else if (mode === 'semicolon') {
-            sep = ';';
-        } else if (mode === 'comma') {
-            sep = ',';
-        } else if (lines.length > 0) {
-            if (lines[0].includes('\t')) {
-                sep = '\t';
-            } else if (lines[0].includes(';')) {
-                sep = ';';
-            }
-        }
-
-        const headerQuestions = ['question', 'front', 'term', 'pergunta', 'frente', 'termo'];
-        const headerAnswers = ['answer', 'back', 'definition', 'resposta', 'verso', 'definicao', 'definição'];
-        let count = 0;
-
-        lines.forEach((line, idx) => {
-            const parts = line.split(sep);
-            if (parts.length < 2) {
-                return;
-            }
-            const q = parts[0].replace(/^"|"$/g, '').trim();
-            const a = parts[1].replace(/^"|"$/g, '').trim();
-            if (!q || !a) {
-                return;
-            }
-            if (idx === 0 && headerQuestions.includes(q.toLowerCase()) && headerAnswers.includes(a.toLowerCase())) {
-                return;
-            }
-            count++;
-        });
-
-        if (importCsvCountBadge) {
-            if (count > 0) {
-                getString('csvcardsdetected', 'block_quickcards', count).then((label) => {
-                    importCsvCountBadge.textContent = label;
-                    importCsvCountBadge.classList.remove('d-none');
-                    return true;
-                }).catch(() => {
-                    importCsvCountBadge.textContent = `${count} cards`;
-                    importCsvCountBadge.classList.remove('d-none');
-                });
-            } else {
-                importCsvCountBadge.classList.add('d-none');
-            }
-        }
-
-        importCsvSubmitBtn.disabled = (count === 0 || deckName === '');
-    };
 
     if (importCsvFileInput) {
         importCsvFileInput.addEventListener('change', (e) => {
@@ -1091,12 +1272,23 @@ export const init = () => {
     if (importCsvForm) {
         importCsvForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            const targetDeckId = getImportTargetDeckId('csv');
+            const isExisting = (currentImportTargetDeckId > 0) || (
+                document.getElementById('quickcards-import-csv-dest-existing') &&
+                document.getElementById('quickcards-import-csv-dest-existing').checked
+            );
+
+            if (isExisting && !targetDeckId) {
+                return;
+            }
+
             const deckname = importCsvNameInput ? importCsvNameInput.value.trim() : '';
             const csvcontent = importCsvTextArea ? importCsvTextArea.value.trim() : '';
             const courseid = importCsvCourseSelect ? parseInt(importCsvCourseSelect.value, 10) : 0;
             const delimiter = importCsvDelimiterSelect ? importCsvDelimiterSelect.value : 'auto';
+            const duplicateaction = getDuplicateAction('csv');
 
-            if (!deckname || !csvcontent) {
+            if (!csvcontent || (!isExisting && !deckname)) {
                 return;
             }
 
@@ -1109,6 +1301,8 @@ export const init = () => {
                     csvcontent: csvcontent,
                     courseid: courseid,
                     delimiter: delimiter,
+                    deckid: targetDeckId,
+                    duplicateaction: duplicateaction,
                 },
             }])[0].then((res) => {
                 if (res.success && res.deckid) {
@@ -1116,7 +1310,11 @@ export const init = () => {
                     if (modal) {
                         modal.hide();
                     }
-                    window.location.href = M.cfg.wwwroot + '/blocks/quickcards/deck.php?id=' + res.deckid;
+                    if (window.location.href.includes('deck.php?id=' + res.deckid)) {
+                        window.location.reload();
+                    } else {
+                        window.location.href = M.cfg.wwwroot + '/blocks/quickcards/deck.php?id=' + res.deckid;
+                    }
                 }
                 return true;
             }).catch((err) => {
@@ -1125,6 +1323,17 @@ export const init = () => {
             });
         });
     }
+
+    ['json', 'csv'].forEach((mode) => {
+        const destRadios = document.querySelectorAll(`input[name="quickcards-import-${mode}-dest"]`);
+        destRadios.forEach((r) => {
+            r.addEventListener('change', updateImportDestinationUI);
+        });
+        const deckSel = document.getElementById(`quickcards-import-${mode}-deck-select`);
+        if (deckSel) {
+            deckSel.addEventListener('change', updateImportDestinationUI);
+        }
+    });
 };
 
 export default {

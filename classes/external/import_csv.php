@@ -38,7 +38,7 @@ class import_csv extends external_api {
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'deckname' => new external_value(PARAM_TEXT, 'Name of the new deck.'),
+            'deckname' => new external_value(PARAM_TEXT, 'Name of the new deck (optional if deckid > 0).', VALUE_DEFAULT, ''),
             'csvcontent' => new external_value(PARAM_RAW, 'Raw CSV or tab-separated text content.'),
             'courseid' => new external_value(PARAM_INT, 'Associated course ID (0 for general).', VALUE_DEFAULT, 0),
             'delimiter' => new external_value(
@@ -46,6 +46,13 @@ class import_csv extends external_api {
                 'Delimiter mode: auto, tab, comma, or semicolon.',
                 VALUE_DEFAULT,
                 'auto'
+            ),
+            'deckid' => new external_value(PARAM_INT, 'Target deck ID or 0 for new deck.', VALUE_DEFAULT, 0),
+            'duplicateaction' => new external_value(
+                PARAM_ALPHA,
+                'Duplicate action: skip, update, allow.',
+                VALUE_DEFAULT,
+                'skip'
             ),
         ]);
     }
@@ -57,13 +64,17 @@ class import_csv extends external_api {
      * @param string $csvcontent Raw CSV/TSV content.
      * @param int $courseid Associated course ID.
      * @param string $delimiter Delimiter mode (auto, tab, comma, semicolon).
+     * @param int $deckid Destination deck ID (0 to create a new deck).
+     * @param string $duplicateaction Action for duplicate cards ('skip', 'update', 'allow').
      * @return array
      */
     public static function execute(
-        string $deckname,
-        string $csvcontent,
+        string $deckname = '',
+        string $csvcontent = '',
         int $courseid = 0,
-        string $delimiter = 'auto'
+        string $delimiter = 'auto',
+        int $deckid = 0,
+        string $duplicateaction = 'skip'
     ): array {
         global $USER;
 
@@ -72,6 +83,8 @@ class import_csv extends external_api {
             'csvcontent' => $csvcontent,
             'courseid' => $courseid,
             'delimiter' => $delimiter,
+            'deckid' => $deckid,
+            'duplicateaction' => $duplicateaction,
         ]);
 
         $context = context_system::instance();
@@ -97,13 +110,18 @@ class import_csv extends external_api {
             $params['csvcontent'],
             (int) $USER->id,
             (int) $params['courseid'],
-            $actualdelimiter
+            $actualdelimiter,
+            '',
+            (int) $params['deckid'],
+            $params['duplicateaction']
         );
 
         return [
             'deckid' => $res['deckid'],
             'deckname' => $res['deckname'],
             'cardscount' => $res['cardscount'],
+            'updatedcount' => $res['updatedcount'] ?? 0,
+            'skippedcount' => $res['skippedcount'] ?? 0,
             'success' => true,
         ];
     }
@@ -115,9 +133,11 @@ class import_csv extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'deckid' => new external_value(PARAM_INT, 'ID of the newly created deck.'),
+            'deckid' => new external_value(PARAM_INT, 'ID of the target deck.'),
             'deckname' => new external_value(PARAM_TEXT, 'Name of the imported deck.'),
             'cardscount' => new external_value(PARAM_INT, 'Number of cards imported.'),
+            'updatedcount' => new external_value(PARAM_INT, 'Number of duplicate cards updated.', VALUE_OPTIONAL),
+            'skippedcount' => new external_value(PARAM_INT, 'Number of duplicate cards skipped.', VALUE_OPTIONAL),
             'success' => new external_value(PARAM_BOOL, 'Whether operation succeeded.'),
         ]);
     }

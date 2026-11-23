@@ -114,6 +114,11 @@
                                     <i class="fa fa-pencil me-2 text-primary" aria-hidden="true"></i> {{#str}} editdeck, block_quickcards {{/str}}
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" href="#" data-action="quickcards-import-cards" data-bs-toggle="modal" data-bs-target="#quickcards-import-modal" data-deckid="{{deck.id}}" data-deckname="{{deck.rawname}}">
+                                    <i class="fa fa-upload me-2 text-info" aria-hidden="true"></i> {{#str}} importcards, block_quickcards {{/str}}
+                                </a>
+                            </li>
                             {{#deck.hascards}}
                             <li>
                                 <a class="dropdown-item" href="#" data-action="quickcards-export-deck" data-bs-toggle="modal" data-bs-target="#quickcards-export-modal" data-id="{{deck.id}}" data-name="{{deck.rawname}}">
@@ -441,3 +446,4 @@
 </div>
 
 {{> block_quickcards/export_modal }}
+{{> block_quickcards/import_modal }}

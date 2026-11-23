@@ -17,7 +17,7 @@
 {{!
     @template block_quickcards/import_modal
 
-    Modal dialog for importing a QuickCards deck from JSON or CSV/Anki/Quizlet.
+    Modal dialog for importing a QuickCards deck or cards from JSON or CSV/Anki/Quizlet.
 
     Example context (json):
     {
@@ -25,16 +25,18 @@
             "wwwroot": "https://example.com"
         },
         "sesskey": "sesskey123",
-        "courseoptions": [
-            {
-                "id": 0,
-                "fullname": "General (Not tied to a course)",
-                "selected": true
-            },
+        "hascourses": true,
+        "courses": [
             {
                 "id": 2,
-                "fullname": "Web Development",
-                "selected": false
+                "fullname": "Web Development"
+            }
+        ],
+        "hasuserdecks": true,
+        "userdecks": [
+            {
+                "id": 1,
+                "name": "JavaScript Fundamentals"
             }
         ]
     }
@@ -44,7 +46,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="quickcards-import-modal-title">
-                    <i class="fa fa-upload me-2 text-primary" aria-hidden="true"></i>{{#str}} importdeck, block_quickcards {{/str}}
+                    <i class="fa fa-upload me-2 text-primary" aria-hidden="true"></i><span id="quickcards-import-modal-title-text">{{#str}} importdeck, block_quickcards {{/str}}</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{#str}} close, block_quickcards {{/str}}"></button>
             </div>
@@ -68,6 +70,59 @@
                 <div class="tab-pane fade show active" id="quickcards-import-tab-json" role="tabpanel" aria-labelledby="quickcards-tab-json-btn">
                     <form id="quickcards-import-form">
                         <div class="modal-body">
+                            <!-- Locked target banner (when importing directly into a deck) -->
+                            <div class="alert alert-info py-2 px-3 mb-3 d-none quickcards-import-target-banner" role="status">
+                                <i class="fa fa-folder-open me-2" aria-hidden="true"></i>
+                                <span class="quickcards-import-target-name"></span>
+                            </div>
+
+                            <!-- Destination choice (when opened globally) -->
+                            {{#hasuserdecks}}
+                            <div class="mb-3 quickcards-import-dest-choice" id="quickcards-import-json-dest-choice">
+                                <label class="form-label fw-bold">{{#str}} importdestination, block_quickcards {{/str}}</label>
+                                <div class="d-flex gap-3 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-json-dest" id="quickcards-import-json-dest-new" value="new" checked>
+                                        <label class="form-check-label" for="quickcards-import-json-dest-new">{{#str}} importnewdeck, block_quickcards {{/str}}</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-json-dest" id="quickcards-import-json-dest-existing" value="existing">
+                                        <label class="form-check-label" for="quickcards-import-json-dest-existing">{{#str}} importexistingdeck, block_quickcards {{/str}}</label>
+                                    </div>
+                                </div>
+                                <div class="quickcards-import-existing-select-wrap d-none" id="quickcards-import-json-existing-select-wrap">
+                                    <select class="form-select form-select-sm" id="quickcards-import-json-deck-select">
+                                        <option value="0">{{#str}} selecttargetdeck, block_quickcards {{/str}}</option>
+                                        {{#userdecks}}
+                                            <option value="{{id}}">{{name}}</option>
+                                        {{/userdecks}}
+                                    </select>
+                                </div>
+                            </div>
+                            {{/hasuserdecks}}
+
+                            <!-- Duplicate options (for existing deck) -->
+                            <div class="p-2 border rounded bg-light mb-3 d-none quickcards-import-duplicate-wrap" id="quickcards-import-json-duplicate-wrap">
+                                <label class="form-label small fw-bold mb-1">
+                                    <i class="fa fa-clone text-secondary me-1" aria-hidden="true"></i>{{#str}} duplicateaction, block_quickcards {{/str}}
+                                </label>
+                                <div class="form-text small text-muted mb-2">{{#str}} duplicateaction_help, block_quickcards {{/str}}</div>
+                                <div class="d-flex flex-column gap-1 small">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-json-dup" id="quickcards-import-json-dup-skip" value="skip" checked>
+                                        <label class="form-check-label" for="quickcards-import-json-dup-skip">{{#str}} duplicateskip, block_quickcards {{/str}}</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-json-dup" id="quickcards-import-json-dup-update" value="update">
+                                        <label class="form-check-label" for="quickcards-import-json-dup-update">{{#str}} duplicateupdate, block_quickcards {{/str}}</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-json-dup" id="quickcards-import-json-dup-allow" value="allow">
+                                        <label class="form-check-label" for="quickcards-import-json-dup-allow">{{#str}} duplicateallow, block_quickcards {{/str}}</label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- File input -->
                             <div class="mb-3">
                                 <label for="quickcards-import-file-input" class="form-label fw-bold">
@@ -88,7 +143,7 @@
                                 <h6 class="fw-bold mb-2 text-primary">
                                     <i class="fa fa-info-circle me-1" aria-hidden="true"></i>{{#str}} deckpreview, block_quickcards {{/str}}
                                 </h6>
-                                <div class="mb-2">
+                                <div class="mb-2 quickcards-import-preview-name-row">
                                     <strong>{{#str}} deckname, block_quickcards {{/str}}:</strong>
                                     <span id="quickcards-import-preview-name" class="text-dark"></span>
                                 </div>
@@ -97,9 +152,9 @@
                                     <span id="quickcards-import-preview-count" class="badge bg-secondary ms-1"></span>
                                 </div>
 
-                                <!-- Course selection -->
+                                <!-- Course selection (only when creating new deck) -->
                                 {{#hascourses}}
-                                    <div class="mt-2 pt-2 border-top">
+                                    <div class="mt-2 pt-2 border-top quickcards-import-course-wrap" id="quickcards-import-json-course-wrap">
                                         <label for="quickcards-import-course-select" class="form-label small fw-bold mb-1">
                                             {{#str}} coursedeck, block_quickcards {{/str}}
                                         </label>
@@ -137,14 +192,67 @@
                 <div class="tab-pane fade" id="quickcards-import-tab-csv" role="tabpanel" aria-labelledby="quickcards-tab-csv-btn">
                     <form id="quickcards-import-csv-form">
                         <div class="modal-body">
+                            <!-- Locked target banner (when importing directly into a deck) -->
+                            <div class="alert alert-info py-2 px-3 mb-3 d-none quickcards-import-target-banner" role="status">
+                                <i class="fa fa-folder-open me-2" aria-hidden="true"></i>
+                                <span class="quickcards-import-target-name"></span>
+                            </div>
+
+                            <!-- Destination choice (when opened globally) -->
+                            {{#hasuserdecks}}
+                            <div class="mb-3 quickcards-import-dest-choice" id="quickcards-import-csv-dest-choice">
+                                <label class="form-label fw-bold">{{#str}} importdestination, block_quickcards {{/str}}</label>
+                                <div class="d-flex gap-3 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-csv-dest" id="quickcards-import-csv-dest-new" value="new" checked>
+                                        <label class="form-check-label" for="quickcards-import-csv-dest-new">{{#str}} importnewdeck, block_quickcards {{/str}}</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-csv-dest" id="quickcards-import-csv-dest-existing" value="existing">
+                                        <label class="form-check-label" for="quickcards-import-csv-dest-existing">{{#str}} importexistingdeck, block_quickcards {{/str}}</label>
+                                    </div>
+                                </div>
+                                <div class="quickcards-import-existing-select-wrap d-none" id="quickcards-import-csv-existing-select-wrap">
+                                    <select class="form-select form-select-sm" id="quickcards-import-csv-deck-select">
+                                        <option value="0">{{#str}} selecttargetdeck, block_quickcards {{/str}}</option>
+                                        {{#userdecks}}
+                                            <option value="{{id}}">{{name}}</option>
+                                        {{/userdecks}}
+                                    </select>
+                                </div>
+                            </div>
+                            {{/hasuserdecks}}
+
+                            <!-- Duplicate options (for existing deck) -->
+                            <div class="p-2 border rounded bg-light mb-3 d-none quickcards-import-duplicate-wrap" id="quickcards-import-csv-duplicate-wrap">
+                                <label class="form-label small fw-bold mb-1">
+                                    <i class="fa fa-clone text-secondary me-1" aria-hidden="true"></i>{{#str}} duplicateaction, block_quickcards {{/str}}
+                                </label>
+                                <div class="form-text small text-muted mb-2">{{#str}} duplicateaction_help, block_quickcards {{/str}}</div>
+                                <div class="d-flex flex-column gap-1 small">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-csv-dup" id="quickcards-import-csv-dup-skip" value="skip" checked>
+                                        <label class="form-check-label" for="quickcards-import-csv-dup-skip">{{#str}} duplicateskip, block_quickcards {{/str}}</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-csv-dup" id="quickcards-import-csv-dup-update" value="update">
+                                        <label class="form-check-label" for="quickcards-import-csv-dup-update">{{#str}} duplicateupdate, block_quickcards {{/str}}</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quickcards-import-csv-dup" id="quickcards-import-csv-dup-allow" value="allow">
+                                        <label class="form-check-label" for="quickcards-import-csv-dup-allow">{{#str}} duplicateallow, block_quickcards {{/str}}</label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="row g-3 mb-3">
-                                <div class="col-md-7">
+                                <div class="col-md-7" id="quickcards-import-csv-name-wrap">
                                     <label for="quickcards-import-csv-name" class="form-label fw-bold">
                                         {{#str}} deckname, block_quickcards {{/str}} <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" id="quickcards-import-csv-name" class="form-control" required placeholder="e.g. English Vocabulary">
+                                    <input type="text" id="quickcards-import-csv-name" class="form-control" placeholder="e.g. English Vocabulary">
                                 </div>
-                                <div class="col-md-5">
+                                <div class="col-md-5" id="quickcards-import-csv-delimiter-wrap">
                                     <label for="quickcards-import-csv-delimiter" class="form-label fw-bold">
                                         {{#str}} delimiter, block_quickcards {{/str}}
                                     </label>
@@ -158,7 +266,7 @@
                             </div>
 
                             {{#hascourses}}
-                                <div class="mb-3">
+                                <div class="mb-3 quickcards-import-course-wrap" id="quickcards-import-csv-course-wrap">
                                     <label for="quickcards-import-csv-course" class="form-label fw-bold">
                                         {{#str}} coursedeck, block_quickcards {{/str}}
                                     </label>

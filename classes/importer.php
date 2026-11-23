@@ -69,43 +69,72 @@ class importer {
      * @param int $userid Target user ID.
      * @param int $courseid Optional associated course ID.
      * @param bool $restoreprogress Whether to restore SM-2 progress if present in the file.
-     * @return array Import summary containing deckid, deckname, cardscount, and progressrestored.
+     * @param int $deckid Optional destination deck ID (0 to create a new deck).
+     * @param string $duplicateaction Action for duplicates: 'skip', 'update', or 'allow'.
+     * @return array Import summary containing deckid, deckname, cardscount, updatedcount, skippedcount, and progressrestored.
      * @throws moodle_exception If validation or insertion fails.
      */
     public static function import_deck_from_json(
         string $jsoncontent,
         int $userid,
         int $courseid = 0,
-        bool $restoreprogress = false
+        bool $restoreprogress = false,
+        int $deckid = 0,
+        string $duplicateaction = 'skip'
     ): array {
         global $DB;
 
         $data = self::validate_payload($jsoncontent);
-
-        $deckname = clean_param(trim($data['deck']['name']), PARAM_TEXT);
-        $deckdescription = clean_param($data['deck']['description'] ?? '', PARAM_RAW);
-        $deckdescformat = (int) ($data['deck']['descriptionformat'] ?? FORMAT_HTML);
 
         $hasprogress = !empty($data['includesprogress']) && $restoreprogress;
         $now = time();
 
         $transaction = $DB->start_delegated_transaction();
 
-        // 1. Create the deck record.
-        $newdeck = (object) [
-            'userid' => $userid,
-            'courseid' => $courseid,
-            'name' => $deckname,
-            'description' => $deckdescription,
-            'descriptionformat' => $deckdescformat,
-            'timecreated' => $now,
-            'timemodified' => $now,
-        ];
-        $deckid = $DB->insert_record('block_quickcards_decks', $newdeck);
+        if ($deckid > 0) {
+            $existingdeck = $DB->get_record(
+                'block_quickcards_decks',
+                ['id' => $deckid, 'userid' => $userid],
+                '*',
+                MUST_EXIST
+            );
+            $targetdeckid = (int) $existingdeck->id;
+            $targetdeckname = $existingdeck->name;
+
+            // Fetch existing cards to index for duplicate checking.
+            $existingcards = $DB->get_records('block_quickcards_cards', ['deckid' => $targetdeckid]);
+            $cardsbyquestion = [];
+            foreach ($existingcards as $ec) {
+                $qnorm = \core_text::strtolower(trim(strip_tags($ec->question)));
+                if ($qnorm === '') {
+                    $qnorm = \core_text::strtolower(trim($ec->question));
+                }
+                $cardsbyquestion[$qnorm] = $ec;
+            }
+        } else {
+            $deckname = clean_param(trim($data['deck']['name']), PARAM_TEXT);
+            $deckdescription = clean_param($data['deck']['description'] ?? '', PARAM_RAW);
+            $deckdescformat = (int) ($data['deck']['descriptionformat'] ?? FORMAT_HTML);
+
+            $newdeck = (object) [
+                'userid' => $userid,
+                'courseid' => $courseid,
+                'name' => $deckname,
+                'description' => $deckdescription,
+                'descriptionformat' => $deckdescformat,
+                'timecreated' => $now,
+                'timemodified' => $now,
+            ];
+            $targetdeckid = (int) $DB->insert_record('block_quickcards_decks', $newdeck);
+            $targetdeckname = $deckname;
+            $cardsbyquestion = [];
+        }
 
         $cardscount = 0;
+        $updatedcount = 0;
+        $skippedcount = 0;
 
-        // 2. Insert cards and review schedules.
+        // 2. Insert or update cards and review schedules.
         foreach ($data['cards'] as $carditem) {
             if (!is_array($carditem)) {
                 continue;
@@ -121,8 +150,61 @@ class importer {
             $qformat = (int) ($carditem['questionformat'] ?? FORMAT_HTML);
             $aformat = (int) ($carditem['answerformat'] ?? FORMAT_HTML);
 
+            $qnorm = \core_text::strtolower(trim(strip_tags($question)));
+            if ($qnorm === '') {
+                $qnorm = \core_text::strtolower(trim($question));
+            }
+
+            $isduplicate = ($deckid > 0 && isset($cardsbyquestion[$qnorm]));
+
+            if ($isduplicate) {
+                if ($duplicateaction === 'skip') {
+                    $skippedcount++;
+                    continue;
+                } else if ($duplicateaction === 'update') {
+                    $existingcard = $cardsbyquestion[$qnorm];
+                    $existingcard->answer = $answer;
+                    $existingcard->answerformat = $aformat;
+                    $existingcard->timemodified = $now;
+                    $DB->update_record('block_quickcards_cards', $existingcard);
+
+                    if ($hasprogress && !empty($carditem['progress']) && is_array($carditem['progress'])) {
+                        $prog = $carditem['progress'];
+                        $ease = (float) ($prog['easefactor'] ?? sm2::DEFAULT_EASE_FACTOR);
+                        if ($ease < sm2::MINIMUM_EASE_FACTOR) {
+                            $ease = sm2::MINIMUM_EASE_FACTOR;
+                        }
+                        $existingreview = $DB->get_record('block_quickcards_reviews', [
+                            'cardid' => $existingcard->id,
+                            'userid' => $userid,
+                        ]);
+                        if ($existingreview) {
+                            $existingreview->easefactor = $ease;
+                            $existingreview->intervaldays = max(0, (int) ($prog['intervaldays'] ?? 0));
+                            $existingreview->repetitions = max(0, (int) ($prog['repetitions'] ?? 0));
+                            $existingreview->nextreview = !empty($prog['nextreview']) ? (int) $prog['nextreview'] : $now;
+                            $existingreview->lastreview = !empty($prog['lastreview']) ? (int) $prog['lastreview'] : null;
+                            $DB->update_record('block_quickcards_reviews', $existingreview);
+                        } else {
+                            $reviewrecord = (object) [
+                                'cardid' => $existingcard->id,
+                                'userid' => $userid,
+                                'easefactor' => $ease,
+                                'intervaldays' => max(0, (int) ($prog['intervaldays'] ?? 0)),
+                                'repetitions' => max(0, (int) ($prog['repetitions'] ?? 0)),
+                                'nextreview' => !empty($prog['nextreview']) ? (int) $prog['nextreview'] : $now,
+                                'lastreview' => !empty($prog['lastreview']) ? (int) $prog['lastreview'] : null,
+                            ];
+                            $DB->insert_record('block_quickcards_reviews', $reviewrecord);
+                        }
+                    }
+                    $updatedcount++;
+                    continue;
+                }
+            }
+
             $cardrecord = (object) [
-                'deckid' => $deckid,
+                'deckid' => $targetdeckid,
                 'userid' => $userid,
                 'question' => $question,
                 'questionformat' => $qformat,
@@ -162,14 +244,26 @@ class importer {
             }
             $DB->insert_record('block_quickcards_reviews', $reviewrecord);
             $cardscount++;
+
+            if ($deckid > 0) {
+                $cardrecord->id = $cardid;
+                $cardsbyquestion[$qnorm] = $cardrecord;
+            }
+        }
+
+        if ($deckid > 0) {
+            $existingdeck->timemodified = $now;
+            $DB->update_record('block_quickcards_decks', $existingdeck);
         }
 
         $transaction->allow_commit();
 
         return [
-            'deckid' => (int) $deckid,
-            'deckname' => $deckname,
+            'deckid' => (int) $targetdeckid,
+            'deckname' => $targetdeckname,
             'cardscount' => $cardscount,
+            'updatedcount' => $updatedcount,
+            'skippedcount' => $skippedcount,
             'progressrestored' => $hasprogress,
         ];
     }
@@ -256,15 +350,17 @@ class importer {
     }
 
     /**
-     * Import a new deck from CSV or tab-separated text (Anki / Quizlet / Excel).
+     * Import a new deck or append cards to an existing deck from CSV or tab-separated text (Anki / Quizlet / Excel).
      *
-     * @param string $deckname Name for the new deck.
+     * @param string $deckname Name for the new deck (optional if deckid > 0).
      * @param string $csvcontent Raw CSV/TSV text content.
      * @param int $userid Target user ID.
      * @param int $courseid Optional associated course ID.
      * @param string $delimiter Delimiter character or 'auto'.
      * @param string $description Optional deck description.
-     * @return array Import summary containing deckid, deckname, and cardscount.
+     * @param int $deckid Optional destination deck ID (0 to create a new deck).
+     * @param string $duplicateaction Action for duplicates: 'skip', 'update', or 'allow'.
+     * @return array Import summary containing deckid, deckname, cardscount, updatedcount, and skippedcount.
      * @throws moodle_exception If deck name is empty or no valid cards are found.
      */
     public static function import_deck_from_csv(
@@ -273,14 +369,13 @@ class importer {
         int $userid,
         int $courseid = 0,
         string $delimiter = 'auto',
-        string $description = ''
+        string $description = '',
+        int $deckid = 0,
+        string $duplicateaction = 'skip'
     ): array {
         global $DB;
 
         $cleandeckname = clean_param(trim($deckname), PARAM_TEXT);
-        if ($cleandeckname === '') {
-            throw new moodle_exception('nodeckname', 'block_quickcards');
-        }
 
         $cards = self::parse_csv_cards($csvcontent, $delimiter);
         if (empty($cards)) {
@@ -290,24 +385,80 @@ class importer {
         $now = time();
         $transaction = $DB->start_delegated_transaction();
 
-        $newdeck = (object) [
-            'userid' => $userid,
-            'courseid' => $courseid,
-            'name' => $cleandeckname,
-            'description' => clean_param($description, PARAM_RAW),
-            'descriptionformat' => FORMAT_HTML,
-            'timecreated' => $now,
-            'timemodified' => $now,
-        ];
-        $deckid = $DB->insert_record('block_quickcards_decks', $newdeck);
+        if ($deckid > 0) {
+            $existingdeck = $DB->get_record(
+                'block_quickcards_decks',
+                ['id' => $deckid, 'userid' => $userid],
+                '*',
+                MUST_EXIST
+            );
+            $targetdeckid = (int) $existingdeck->id;
+            $targetdeckname = $existingdeck->name;
+
+            // Fetch existing cards to index for duplicate checking.
+            $existingcards = $DB->get_records('block_quickcards_cards', ['deckid' => $targetdeckid]);
+            $cardsbyquestion = [];
+            foreach ($existingcards as $ec) {
+                $qnorm = \core_text::strtolower(trim(strip_tags($ec->question)));
+                if ($qnorm === '') {
+                    $qnorm = \core_text::strtolower(trim($ec->question));
+                }
+                $cardsbyquestion[$qnorm] = $ec;
+            }
+        } else {
+            if ($cleandeckname === '') {
+                throw new moodle_exception('nodeckname', 'block_quickcards');
+            }
+
+            $newdeck = (object) [
+                'userid' => $userid,
+                'courseid' => $courseid,
+                'name' => $cleandeckname,
+                'description' => clean_param($description, PARAM_RAW),
+                'descriptionformat' => FORMAT_HTML,
+                'timecreated' => $now,
+                'timemodified' => $now,
+            ];
+            $targetdeckid = (int) $DB->insert_record('block_quickcards_decks', $newdeck);
+            $targetdeckname = $cleandeckname;
+            $cardsbyquestion = [];
+        }
+
+        $cardscount = 0;
+        $updatedcount = 0;
+        $skippedcount = 0;
 
         foreach ($cards as $carditem) {
+            $question = $carditem['question'];
+            $answer = $carditem['answer'];
+
+            $qnorm = \core_text::strtolower(trim(strip_tags($question)));
+            if ($qnorm === '') {
+                $qnorm = \core_text::strtolower(trim($question));
+            }
+
+            $isduplicate = ($deckid > 0 && isset($cardsbyquestion[$qnorm]));
+
+            if ($isduplicate) {
+                if ($duplicateaction === 'skip') {
+                    $skippedcount++;
+                    continue;
+                } else if ($duplicateaction === 'update') {
+                    $existingcard = $cardsbyquestion[$qnorm];
+                    $existingcard->answer = $answer;
+                    $existingcard->timemodified = $now;
+                    $DB->update_record('block_quickcards_cards', $existingcard);
+                    $updatedcount++;
+                    continue;
+                }
+            }
+
             $cardrecord = (object) [
-                'deckid' => $deckid,
+                'deckid' => $targetdeckid,
                 'userid' => $userid,
-                'question' => $carditem['question'],
+                'question' => $question,
                 'questionformat' => FORMAT_HTML,
-                'answer' => $carditem['answer'],
+                'answer' => $answer,
                 'answerformat' => FORMAT_HTML,
                 'timecreated' => $now,
                 'timemodified' => $now,
@@ -324,14 +475,27 @@ class importer {
                 'lastreview' => null,
             ];
             $DB->insert_record('block_quickcards_reviews', $reviewrecord);
+            $cardscount++;
+
+            if ($deckid > 0) {
+                $cardrecord->id = $cardid;
+                $cardsbyquestion[$qnorm] = $cardrecord;
+            }
+        }
+
+        if ($deckid > 0) {
+            $existingdeck->timemodified = $now;
+            $DB->update_record('block_quickcards_decks', $existingdeck);
         }
 
         $transaction->allow_commit();
 
         return [
-            'deckid' => (int) $deckid,
-            'deckname' => $cleandeckname,
-            'cardscount' => count($cards),
+            'deckid' => (int) $targetdeckid,
+            'deckname' => $targetdeckname,
+            'cardscount' => $cardscount,
+            'updatedcount' => $updatedcount,
+            'skippedcount' => $skippedcount,
         ];
     }
 }

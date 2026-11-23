@@ -41,6 +41,13 @@ class import_deck extends external_api {
             'jsoncontent' => new external_value(PARAM_RAW, 'Raw JSON export string.'),
             'courseid' => new external_value(PARAM_INT, 'Associated course ID (0 for general).', VALUE_DEFAULT, 0),
             'restoreprogress' => new external_value(PARAM_BOOL, 'Whether to restore SM-2 progress.', VALUE_DEFAULT, false),
+            'deckid' => new external_value(PARAM_INT, 'Target deck ID or 0 for new deck.', VALUE_DEFAULT, 0),
+            'duplicateaction' => new external_value(
+                PARAM_ALPHA,
+                'Duplicate action: skip, update, allow.',
+                VALUE_DEFAULT,
+                'skip'
+            ),
         ]);
     }
 
@@ -50,15 +57,25 @@ class import_deck extends external_api {
      * @param string $jsoncontent Raw JSON export string.
      * @param int $courseid Associated course ID.
      * @param bool $restoreprogress Whether to restore study progress.
+     * @param int $deckid Destination deck ID (0 to create a new deck).
+     * @param string $duplicateaction Action for duplicate cards ('skip', 'update', 'allow').
      * @return array
      */
-    public static function execute(string $jsoncontent, int $courseid = 0, bool $restoreprogress = false): array {
+    public static function execute(
+        string $jsoncontent,
+        int $courseid = 0,
+        bool $restoreprogress = false,
+        int $deckid = 0,
+        string $duplicateaction = 'skip'
+    ): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'jsoncontent' => $jsoncontent,
             'courseid' => $courseid,
             'restoreprogress' => $restoreprogress,
+            'deckid' => $deckid,
+            'duplicateaction' => $duplicateaction,
         ]);
 
         $context = context_system::instance();
@@ -75,13 +92,17 @@ class import_deck extends external_api {
             $params['jsoncontent'],
             (int) $USER->id,
             (int) $params['courseid'],
-            (bool) $params['restoreprogress']
+            (bool) $params['restoreprogress'],
+            (int) $params['deckid'],
+            $params['duplicateaction']
         );
 
         return [
             'deckid' => $res['deckid'],
             'deckname' => $res['deckname'],
             'cardscount' => $res['cardscount'],
+            'updatedcount' => $res['updatedcount'] ?? 0,
+            'skippedcount' => $res['skippedcount'] ?? 0,
             'progressrestored' => $res['progressrestored'],
             'success' => true,
         ];
@@ -94,9 +115,11 @@ class import_deck extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'deckid' => new external_value(PARAM_INT, 'ID of the newly created deck.'),
+            'deckid' => new external_value(PARAM_INT, 'ID of the target deck.'),
             'deckname' => new external_value(PARAM_TEXT, 'Name of the imported deck.'),
             'cardscount' => new external_value(PARAM_INT, 'Number of cards imported.'),
+            'updatedcount' => new external_value(PARAM_INT, 'Number of duplicate cards updated.', VALUE_OPTIONAL),
+            'skippedcount' => new external_value(PARAM_INT, 'Number of duplicate cards skipped.', VALUE_OPTIONAL),
             'progressrestored' => new external_value(PARAM_BOOL, 'Whether study progress was restored.'),
             'success' => new external_value(PARAM_BOOL, 'Whether operation succeeded.'),
         ]);

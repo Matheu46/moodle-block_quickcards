@@ -244,7 +244,7 @@
                                         </span>
                                     {{/isnew}}
                                 {{/isdue}}
-                                <span class="badge text-bg-light border text-muted ms-1" title="Repetitions">
+                                <span class="badge text-bg-light border text-muted ms-1" title="{{#str}} repetitions, block_quickcards {{/str}}">
                                     {{repetitions}}x
                                 </span>
                             </div>
@@ -337,7 +337,7 @@
                         <label for="quickcards-card-question" class="form-label fw-bold">
                             <i class="fa fa-question-circle text-primary me-1" aria-hidden="true"></i> {{#str}} question, block_quickcards {{/str}} <span class="text-danger">*</span>
                         </label>
-                        <textarea class="form-control" id="quickcards-card-question" rows="4" required placeholder="What concept, prompt or question do you want to recall?"></textarea>
+                        <textarea class="form-control" id="quickcards-card-question" rows="4" required placeholder="{{#str}} cardfront_placeholder, block_quickcards {{/str}}"></textarea>
                         <div class="form-text text-muted">{{#str}} question_help, block_quickcards {{/str}}</div>
                     </div>
 
@@ -345,7 +345,7 @@
                         <label for="quickcards-card-answer" class="form-label fw-bold">
                             <i class="fa fa-check-circle text-success me-1" aria-hidden="true"></i> {{#str}} answer, block_quickcards {{/str}} <span class="text-danger">*</span>
                         </label>
-                        <textarea class="form-control" id="quickcards-card-answer" rows="4" required placeholder="What is the answer, formula, or key definition?"></textarea>
+                        <textarea class="form-control" id="quickcards-card-answer" rows="4" required placeholder="{{#str}} cardback_placeholder, block_quickcards {{/str}}"></textarea>
                         <div class="form-text text-muted">{{#str}} answer_help, block_quickcards {{/str}}</div>
                     </div>
                 </div>

@@ -336,12 +336,12 @@
                     
                     <div class="mb-3">
                         <label for="quickcards-deck-name" class="form-label fw-bold">{{#str}} deckname, block_quickcards {{/str}} <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="quickcards-deck-name" required placeholder="e.g. Psychology 101 - Cognitive Bias">
+                        <input type="text" class="form-control" id="quickcards-deck-name" required placeholder="{{#str}} deckname_help, block_quickcards {{/str}}">
                     </div>
 
                     <div class="mb-3">
                         <label for="quickcards-deck-description" class="form-label fw-bold">{{#str}} deckdescription, block_quickcards {{/str}}</label>
-                        <textarea class="form-control" id="quickcards-deck-description" rows="3" placeholder="Optional notes about what this deck covers..."></textarea>
+                        <textarea class="form-control" id="quickcards-deck-description" rows="3" placeholder="{{#str}} deckdescription_placeholder, block_quickcards {{/str}}"></textarea>
                     </div>
 
                     <div class="mb-3">

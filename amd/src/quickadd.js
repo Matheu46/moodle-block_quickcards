@@ -167,8 +167,16 @@ const setupQuickAddCard = (uniqid) => {
             }
 
             if (errorBox) {
-                errorBox.textContent = (response && response.message) || 'Error creating card';
-                errorBox.classList.remove('d-none');
+                if (response && response.message) {
+                    errorBox.textContent = response.message;
+                    errorBox.classList.remove('d-none');
+                } else {
+                    getString('errorcreatingcard', 'block_quickcards').then((msg) => {
+                        errorBox.textContent = msg;
+                        errorBox.classList.remove('d-none');
+                        return true;
+                    }).catch(Notification.exception);
+                }
             }
             return null;
         }).then((savedMsg) => {
@@ -180,8 +188,16 @@ const setupQuickAddCard = (uniqid) => {
             resetLoadingState();
 
             if (errorBox) {
-                errorBox.textContent = err.message || err.error || 'Server error';
-                errorBox.classList.remove('d-none');
+                if (err.message || err.error) {
+                    errorBox.textContent = err.message || err.error;
+                    errorBox.classList.remove('d-none');
+                } else {
+                    getString('servererror', 'block_quickcards').then((msg) => {
+                        errorBox.textContent = msg;
+                        errorBox.classList.remove('d-none');
+                        return true;
+                    }).catch(Notification.exception);
+                }
             } else {
                 Notification.exception(err);
             }
@@ -300,8 +316,16 @@ const setupQuickCreateDeck = (uniqid) => {
             } else {
                 resetLoadingState();
                 if (errorBox) {
-                    errorBox.textContent = (response && response.message) || 'Error creating deck';
-                    errorBox.classList.remove('d-none');
+                    if (response && response.message) {
+                        errorBox.textContent = response.message;
+                        errorBox.classList.remove('d-none');
+                    } else {
+                        getString('errorcreatingdeck', 'block_quickcards').then((msg) => {
+                            errorBox.textContent = msg;
+                            errorBox.classList.remove('d-none');
+                            return true;
+                        }).catch(Notification.exception);
+                    }
                 }
             }
             return true;
@@ -309,8 +333,16 @@ const setupQuickCreateDeck = (uniqid) => {
             resetLoadingState();
 
             if (errorBox) {
-                errorBox.textContent = err.message || err.error || 'Server error';
-                errorBox.classList.remove('d-none');
+                if (err.message || err.error) {
+                    errorBox.textContent = err.message || err.error;
+                    errorBox.classList.remove('d-none');
+                } else {
+                    getString('servererror', 'block_quickcards').then((msg) => {
+                        errorBox.textContent = msg;
+                        errorBox.classList.remove('d-none');
+                        return true;
+                    }).catch(Notification.exception);
+                }
             } else {
                 Notification.exception(err);
             }

@@ -29,6 +29,105 @@ use moodle_exception;
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class importer {
+    /** @var int Maximum allowed import payload size in bytes (5 MB). */
+    public const MAX_PAYLOAD_BYTES = 5242880;
+
+    /** @var int Maximum allowed number of cards per single import. */
+    public const MAX_IMPORT_CARDS = 2000;
+
+    /** @var int Maximum deck name length matching DB schema CHAR(255). */
+    public const MAX_DECK_NAME_LENGTH = 255;
+
+    /** @var float Maximum allowed SM-2 ease factor on import. */
+    public const MAX_EASE_FACTOR = 5.0;
+
+    /** @var int Maximum allowed SM-2 interval in days (~100 years). */
+    public const MAX_INTERVAL_DAYS = 36500;
+
+    /** @var int Maximum allowed SM-2 repetition count on import. */
+    public const MAX_REPETITIONS = 10000;
+
+    /** @var int Maximum JSON nesting depth allowed during decoding. */
+    private const MAX_JSON_DEPTH = 16;
+
+    /**
+     * Whitelist a Moodle text format constant.
+     *
+     * @param int $format Raw format integer from import payload.
+     * @return int Valid Moodle FORMAT_* constant.
+     */
+    private static function sanitize_format(int $format): int {
+        $allowed = [FORMAT_MOODLE, FORMAT_HTML, FORMAT_PLAIN, FORMAT_MARKDOWN];
+        return in_array($format, $allowed, true) ? $format : FORMAT_HTML;
+    }
+
+    /**
+     * Sanitize imported card or deck text content to prevent stored XSS.
+     *
+     * @param string $content Raw text content.
+     * @param int $format Validated Moodle FORMAT_* constant.
+     * @return string Cleaned content.
+     */
+    private static function sanitize_content(string $content, int $format): string {
+        $raw = clean_param(trim($content), PARAM_RAW);
+        if ($raw === '') {
+            return '';
+        }
+        return trim(clean_text($raw, $format));
+    }
+
+    /**
+     * Sanitize and clamp imported SM-2 progress fields to safe bounds.
+     *
+     * @param array $prog Raw progress array from JSON.
+     * @param int $now Current Unix timestamp.
+     * @return array Clamped easefactor, intervaldays, repetitions, nextreview, lastreview.
+     */
+    private static function sanitize_progress(array $prog, int $now): array {
+        $rawease = $prog['easefactor'] ?? sm2::DEFAULT_EASE_FACTOR;
+        $ease = is_numeric($rawease) ? (float) $rawease : sm2::DEFAULT_EASE_FACTOR;
+        if (!is_finite($ease)) {
+            $ease = sm2::DEFAULT_EASE_FACTOR;
+        }
+        $ease = round(max(sm2::MINIMUM_EASE_FACTOR, min(self::MAX_EASE_FACTOR, $ease)), 2);
+
+        $rawinterval = $prog['intervaldays'] ?? 0;
+        $intervaldays = is_numeric($rawinterval) ? (int) $rawinterval : 0;
+        $intervaldays = max(0, min(self::MAX_INTERVAL_DAYS, $intervaldays));
+
+        $rawreps = $prog['repetitions'] ?? 0;
+        $repetitions = is_numeric($rawreps) ? (int) $rawreps : 0;
+        $repetitions = max(0, min(self::MAX_REPETITIONS, $repetitions));
+
+        $maxnext = $now + (self::MAX_INTERVAL_DAYS * DAYSECS);
+        if (!empty($prog['nextreview']) && is_numeric($prog['nextreview'])) {
+            $nextreview = (int) $prog['nextreview'];
+            if ($nextreview < 0) {
+                $nextreview = $now;
+            } else if ($nextreview > $maxnext) {
+                $nextreview = $maxnext;
+            }
+        } else {
+            $nextreview = $now;
+        }
+
+        $lastreview = null;
+        if (!empty($prog['lastreview']) && is_numeric($prog['lastreview'])) {
+            $lr = (int) $prog['lastreview'];
+            if ($lr > 0) {
+                $lastreview = min($now, $lr);
+            }
+        }
+
+        return [
+            'easefactor' => $ease,
+            'intervaldays' => $intervaldays,
+            'repetitions' => $repetitions,
+            'nextreview' => $nextreview,
+            'lastreview' => $lastreview,
+        ];
+    }
+
     /**
      * Parse and validate a QuickCards JSON payload without saving to the database.
      *
@@ -37,7 +136,11 @@ class importer {
      * @throws moodle_exception If JSON or schema is invalid.
      */
     public static function validate_payload(string $jsoncontent): array {
-        $data = json_decode($jsoncontent, true);
+        if (strlen($jsoncontent) > self::MAX_PAYLOAD_BYTES) {
+            throw new moodle_exception('importfiletoolarge', 'block_quickcards');
+        }
+
+        $data = json_decode($jsoncontent, true, self::MAX_JSON_DEPTH);
         if ($data === null || !is_array($data)) {
             throw new moodle_exception('invalidjson', 'block_quickcards');
         }
@@ -46,17 +149,30 @@ class importer {
             throw new moodle_exception('invalidfileformat', 'block_quickcards');
         }
 
-        if (empty($data['version']) || version_compare($data['version'], exporter::FORMAT_VERSION, '>')) {
-            $versionstr = !empty($data['version']) ? (string) $data['version'] : 'unknown';
+        if (
+            empty($data['version']) ||
+            !is_string($data['version']) ||
+            version_compare($data['version'], exporter::FORMAT_VERSION, '>')
+        ) {
+            $versionstr = !empty($data['version']) && is_scalar($data['version']) ? (string) $data['version'] : 'unknown';
             throw new moodle_exception('unsupportedversion', 'block_quickcards', '', $versionstr);
         }
 
-        if (empty($data['deck']) || !is_array($data['deck']) || empty(trim($data['deck']['name'] ?? ''))) {
+        if (
+            empty($data['deck']) ||
+            !is_array($data['deck']) ||
+            !is_string($data['deck']['name'] ?? null) ||
+            empty(trim(clean_param($data['deck']['name'], PARAM_TEXT)))
+        ) {
             throw new moodle_exception('nodeckname', 'block_quickcards');
         }
 
         if (!isset($data['cards']) || !is_array($data['cards'])) {
             throw new moodle_exception('nofileorcard', 'block_quickcards');
+        }
+
+        if (count($data['cards']) > self::MAX_IMPORT_CARDS) {
+            throw new moodle_exception('importtoomanycards', 'block_quickcards', '', self::MAX_IMPORT_CARDS);
         }
 
         return $data;
@@ -86,6 +202,10 @@ class importer {
 
         $data = self::validate_payload($jsoncontent);
 
+        if (!in_array($duplicateaction, ['skip', 'update', 'allow'], true)) {
+            $duplicateaction = 'skip';
+        }
+
         $hasprogress = !empty($data['includesprogress']) && $restoreprogress;
         $now = time();
 
@@ -112,16 +232,22 @@ class importer {
                 $cardsbyquestion[$qnorm] = $ec;
             }
         } else {
-            $deckname = clean_param(trim($data['deck']['name']), PARAM_TEXT);
-            $deckdescription = clean_param($data['deck']['description'] ?? '', PARAM_RAW);
-            $deckdescformat = (int) ($data['deck']['descriptionformat'] ?? FORMAT_HTML);
+            $deckname = \core_text::substr(
+                clean_param(trim($data['deck']['name']), PARAM_TEXT),
+                0,
+                self::MAX_DECK_NAME_LENGTH
+            );
+            if ($deckname === '') {
+                throw new moodle_exception('nodeckname', 'block_quickcards');
+            }
+            $rawdesc = is_string($data['deck']['description'] ?? null) ? $data['deck']['description'] : '';
+            $deckdescription = self::sanitize_content($rawdesc, FORMAT_HTML);
 
             $newdeck = (object) [
                 'userid' => $userid,
                 'courseid' => $courseid,
                 'name' => $deckname,
                 'description' => $deckdescription,
-                'descriptionformat' => $deckdescformat,
                 'timecreated' => $now,
                 'timemodified' => $now,
             ];
@@ -140,15 +266,19 @@ class importer {
                 continue;
             }
 
-            $question = clean_param(trim($carditem['question'] ?? ''), PARAM_RAW);
-            $answer = clean_param(trim($carditem['answer'] ?? ''), PARAM_RAW);
+            if (!is_string($carditem['question'] ?? null) || !is_string($carditem['answer'] ?? null)) {
+                continue;
+            }
+
+            $qformat = self::sanitize_format((int) ($carditem['questionformat'] ?? FORMAT_HTML));
+            $aformat = self::sanitize_format((int) ($carditem['answerformat'] ?? FORMAT_HTML));
+
+            $question = self::sanitize_content($carditem['question'], $qformat);
+            $answer = self::sanitize_content($carditem['answer'], $aformat);
 
             if ($question === '' || $answer === '') {
                 continue;
             }
-
-            $qformat = (int) ($carditem['questionformat'] ?? FORMAT_HTML);
-            $aformat = (int) ($carditem['answerformat'] ?? FORMAT_HTML);
 
             $qnorm = \core_text::strtolower(trim(strip_tags($question)));
             if ($qnorm === '') {
@@ -169,31 +299,27 @@ class importer {
                     $DB->update_record('block_quickcards_cards', $existingcard);
 
                     if ($hasprogress && !empty($carditem['progress']) && is_array($carditem['progress'])) {
-                        $prog = $carditem['progress'];
-                        $ease = (float) ($prog['easefactor'] ?? sm2::DEFAULT_EASE_FACTOR);
-                        if ($ease < sm2::MINIMUM_EASE_FACTOR) {
-                            $ease = sm2::MINIMUM_EASE_FACTOR;
-                        }
+                        $prog = self::sanitize_progress($carditem['progress'], $now);
                         $existingreview = $DB->get_record('block_quickcards_reviews', [
                             'cardid' => $existingcard->id,
                             'userid' => $userid,
                         ]);
                         if ($existingreview) {
-                            $existingreview->easefactor = $ease;
-                            $existingreview->intervaldays = max(0, (int) ($prog['intervaldays'] ?? 0));
-                            $existingreview->repetitions = max(0, (int) ($prog['repetitions'] ?? 0));
-                            $existingreview->nextreview = !empty($prog['nextreview']) ? (int) $prog['nextreview'] : $now;
-                            $existingreview->lastreview = !empty($prog['lastreview']) ? (int) $prog['lastreview'] : null;
+                            $existingreview->easefactor = $prog['easefactor'];
+                            $existingreview->intervaldays = $prog['intervaldays'];
+                            $existingreview->repetitions = $prog['repetitions'];
+                            $existingreview->nextreview = $prog['nextreview'];
+                            $existingreview->lastreview = $prog['lastreview'];
                             $DB->update_record('block_quickcards_reviews', $existingreview);
                         } else {
                             $reviewrecord = (object) [
                                 'cardid' => $existingcard->id,
                                 'userid' => $userid,
-                                'easefactor' => $ease,
-                                'intervaldays' => max(0, (int) ($prog['intervaldays'] ?? 0)),
-                                'repetitions' => max(0, (int) ($prog['repetitions'] ?? 0)),
-                                'nextreview' => !empty($prog['nextreview']) ? (int) $prog['nextreview'] : $now,
-                                'lastreview' => !empty($prog['lastreview']) ? (int) $prog['lastreview'] : null,
+                                'easefactor' => $prog['easefactor'],
+                                'intervaldays' => $prog['intervaldays'],
+                                'repetitions' => $prog['repetitions'],
+                                'nextreview' => $prog['nextreview'],
+                                'lastreview' => $prog['lastreview'],
                             ];
                             $DB->insert_record('block_quickcards_reviews', $reviewrecord);
                         }
@@ -217,19 +343,15 @@ class importer {
 
             // Review schedule.
             if ($hasprogress && !empty($carditem['progress']) && is_array($carditem['progress'])) {
-                $prog = $carditem['progress'];
-                $ease = (float) ($prog['easefactor'] ?? sm2::DEFAULT_EASE_FACTOR);
-                if ($ease < sm2::MINIMUM_EASE_FACTOR) {
-                    $ease = sm2::MINIMUM_EASE_FACTOR;
-                }
+                $prog = self::sanitize_progress($carditem['progress'], $now);
                 $reviewrecord = (object) [
                     'cardid' => $cardid,
                     'userid' => $userid,
-                    'easefactor' => $ease,
-                    'intervaldays' => max(0, (int) ($prog['intervaldays'] ?? 0)),
-                    'repetitions' => max(0, (int) ($prog['repetitions'] ?? 0)),
-                    'nextreview' => !empty($prog['nextreview']) ? (int) $prog['nextreview'] : $now,
-                    'lastreview' => !empty($prog['lastreview']) ? (int) $prog['lastreview'] : null,
+                    'easefactor' => $prog['easefactor'],
+                    'intervaldays' => $prog['intervaldays'],
+                    'repetitions' => $prog['repetitions'],
+                    'nextreview' => $prog['nextreview'],
+                    'lastreview' => $prog['lastreview'],
                 ];
             } else {
                 $reviewrecord = (object) [
@@ -300,6 +422,10 @@ class importer {
      * @return array List of ['question' => string, 'answer' => string].
      */
     public static function parse_csv_cards(string $csvcontent, string $delimiter = 'auto'): array {
+        if (strlen($csvcontent) > self::MAX_PAYLOAD_BYTES) {
+            throw new moodle_exception('importfiletoolarge', 'block_quickcards');
+        }
+
         // Strip UTF-8 BOM if present and normalize line endings.
         $normalized = preg_replace('/^\xEF\xBB\xBF/', '', $csvcontent);
         $normalized = str_replace(["\r\n", "\r"], "\n", (string) $normalized);
@@ -322,8 +448,8 @@ class importer {
                 continue;
             }
 
-            $question = clean_param(trim((string) $row[0]), PARAM_RAW);
-            $answer = clean_param(trim((string) $row[1]), PARAM_RAW);
+            $question = self::sanitize_content((string) $row[0], FORMAT_HTML);
+            $answer = self::sanitize_content((string) $row[1], FORMAT_HTML);
 
             if ($question === '' || $answer === '') {
                 continue;
@@ -337,6 +463,11 @@ class importer {
                 if (in_array($qlower, $headerquestions, true) && in_array($alower, $headeranswers, true)) {
                     continue;
                 }
+            }
+
+            if (count($cards) >= self::MAX_IMPORT_CARDS) {
+                fclose($handle);
+                throw new moodle_exception('importtoomanycards', 'block_quickcards', '', self::MAX_IMPORT_CARDS);
             }
 
             $cards[] = [
@@ -375,7 +506,15 @@ class importer {
     ): array {
         global $DB;
 
-        $cleandeckname = clean_param(trim($deckname), PARAM_TEXT);
+        $cleandeckname = \core_text::substr(
+            clean_param(trim($deckname), PARAM_TEXT),
+            0,
+            self::MAX_DECK_NAME_LENGTH
+        );
+
+        if (!in_array($duplicateaction, ['skip', 'update', 'allow'], true)) {
+            $duplicateaction = 'skip';
+        }
 
         $cards = self::parse_csv_cards($csvcontent, $delimiter);
         if (empty($cards)) {
@@ -414,8 +553,7 @@ class importer {
                 'userid' => $userid,
                 'courseid' => $courseid,
                 'name' => $cleandeckname,
-                'description' => clean_param($description, PARAM_RAW),
-                'descriptionformat' => FORMAT_HTML,
+                'description' => self::sanitize_content($description, FORMAT_HTML),
                 'timecreated' => $now,
                 'timemodified' => $now,
             ];

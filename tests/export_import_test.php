@@ -550,4 +550,179 @@ final class export_import_test extends advanced_testcase {
         $this->expectException(dml_missing_record_exception::class);
         import_csv::execute('', "Foreign Q\tForeign A", 0, 'tab', $deck['id'], 'skip');
     }
+
+    /**
+     * Test JSON import strips XSS payloads, normalizes invalid formats, and truncates long deck names.
+     */
+    public function test_import_json_sanitizes_xss_and_formats(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $longname = str_repeat('A', 300);
+        $payload = json_encode([
+            'format' => exporter::FORMAT_IDENTIFIER,
+            'version' => exporter::FORMAT_VERSION,
+            'includesprogress' => false,
+            'deck' => [
+                'name' => $longname,
+                'description' => '<p>Notes</p><script>alert("xss")</script>',
+            ],
+            'cards' => [
+                [
+                    'question' => 'Safe Q <script>alert(1)</script><img src="x" onerror="alert(2)">',
+                    'questionformat' => 999,
+                    'answer' => 'Safe A <a href="javascript:alert(3)">click</a>',
+                    'answerformat' => -5,
+                ],
+                [
+                    // Card containing only a script tag must become empty after sanitization and be skipped.
+                    'question' => '<script>evil()</script>',
+                    'answer' => 'Valid answer',
+                ],
+            ],
+        ]);
+
+        $res = import_deck::execute($payload, 0, false);
+        $res = external_api::clean_returnvalue(import_deck::execute_returns(), $res);
+
+        $this->assertTrue($res['success']);
+        $this->assertEquals(1, $res['cardscount']);
+
+        $deck = $DB->get_record('block_quickcards_decks', ['id' => $res['deckid']], '*', MUST_EXIST);
+        $this->assertEquals(importer::MAX_DECK_NAME_LENGTH, \core_text::strlen($deck->name));
+        $this->assertStringNotContainsString('<script', $deck->description);
+        $this->assertStringContainsString('Notes', $deck->description);
+
+        $cards = array_values($DB->get_records('block_quickcards_cards', ['deckid' => $res['deckid']]));
+        $this->assertCount(1, $cards);
+        $this->assertEquals(FORMAT_HTML, (int) $cards[0]->questionformat);
+        $this->assertEquals(FORMAT_HTML, (int) $cards[0]->answerformat);
+        $this->assertStringNotContainsString('<script', $cards[0]->question);
+        $this->assertStringNotContainsString('onerror', $cards[0]->question);
+        $this->assertStringContainsString('Safe Q', $cards[0]->question);
+        $this->assertStringNotContainsString('javascript:', $cards[0]->answer);
+        $this->assertStringContainsString('Safe A', $cards[0]->answer);
+    }
+
+    /**
+     * Test CSV import strips XSS payloads before saving to the database.
+     */
+    public function test_import_csv_sanitizes_xss(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $csv = "<script>alert(1)</script>Mitochondria\t<img src=x onerror=alert(1)>ATP\n";
+        $res = import_csv::execute('Bio Safe', $csv, 0, 'tab');
+        $res = external_api::clean_returnvalue(import_csv::execute_returns(), $res);
+
+        $this->assertTrue($res['success']);
+        $this->assertEquals(1, $res['cardscount']);
+
+        $cards = array_values($DB->get_records('block_quickcards_cards', ['deckid' => $res['deckid']]));
+        $this->assertCount(1, $cards);
+        $this->assertStringNotContainsString('<script', $cards[0]->question);
+        $this->assertStringContainsString('Mitochondria', $cards[0]->question);
+        $this->assertStringNotContainsString('onerror', $cards[0]->answer);
+        $this->assertStringContainsString('ATP', $cards[0]->answer);
+    }
+
+    /**
+     * Test JSON import clamps extreme or malicious SM-2 progress values to safe bounds.
+     */
+    public function test_import_json_clamps_malicious_sm2_progress(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $now = time();
+        $payload = json_encode([
+            'format' => exporter::FORMAT_IDENTIFIER,
+            'version' => exporter::FORMAT_VERSION,
+            'includesprogress' => true,
+            'deck' => ['name' => 'Clamped SM2'],
+            'cards' => [
+                [
+                    'question' => 'Q1',
+                    'answer' => 'A1',
+                    'progress' => [
+                        'easefactor' => 99999.99,
+                        'intervaldays' => 999999999,
+                        'repetitions' => 999999999,
+                        'nextreview' => -500,
+                        'lastreview' => $now + 9999999,
+                    ],
+                ],
+            ],
+        ]);
+
+        $res = import_deck::execute($payload, 0, true);
+        $res = external_api::clean_returnvalue(import_deck::execute_returns(), $res);
+
+        $this->assertTrue($res['success']);
+        $cards = array_values($DB->get_records('block_quickcards_cards', ['deckid' => $res['deckid']]));
+        $review = $DB->get_record('block_quickcards_reviews', ['cardid' => $cards[0]->id], '*', MUST_EXIST);
+
+        $this->assertEquals(importer::MAX_EASE_FACTOR, (float) $review->easefactor);
+        $this->assertEquals(importer::MAX_INTERVAL_DAYS, (int) $review->intervaldays);
+        $this->assertEquals(importer::MAX_REPETITIONS, (int) $review->repetitions);
+        $this->assertGreaterThanOrEqual($now, (int) $review->nextreview);
+        $this->assertLessThanOrEqual(time(), (int) $review->lastreview);
+    }
+
+    /**
+     * Test JSON import rejects payloads exceeding MAX_PAYLOAD_BYTES.
+     */
+    public function test_import_json_rejects_oversized_payload(): void {
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $oversized = str_repeat('x', importer::MAX_PAYLOAD_BYTES + 1);
+        $this->expectException(moodle_exception::class);
+        importer::validate_payload($oversized);
+    }
+
+    /**
+     * Test JSON import rejects decks exceeding MAX_IMPORT_CARDS.
+     */
+    public function test_import_json_rejects_too_many_cards(): void {
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $cards = array_fill(0, importer::MAX_IMPORT_CARDS + 1, ['question' => 'Q', 'answer' => 'A']);
+        $payload = json_encode([
+            'format' => exporter::FORMAT_IDENTIFIER,
+            'version' => exporter::FORMAT_VERSION,
+            'deck' => ['name' => 'Huge Deck'],
+            'cards' => $cards,
+        ]);
+
+        $this->expectException(moodle_exception::class);
+        importer::validate_payload($payload);
+    }
+
+    /**
+     * Test CSV import rejects content exceeding MAX_IMPORT_CARDS.
+     */
+    public function test_import_csv_rejects_too_many_cards(): void {
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $csv = str_repeat("Q\tA\n", importer::MAX_IMPORT_CARDS + 1);
+        $this->expectException(moodle_exception::class);
+        importer::parse_csv_cards($csv, "\t");
+    }
 }

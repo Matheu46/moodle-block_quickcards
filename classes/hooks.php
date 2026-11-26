@@ -16,10 +16,10 @@
 
 namespace block_quickcards;
 
-use core_user\hook\extend_user_menu;
-use core_user\output\user_action_menu\link;
 use core\output\pix_icon;
 use core\url;
+use core_user\hook\extend_user_menu;
+use core_user\output\user_action_menu\link;
 
 /**
  * Hook callbacks handler for block_quickcards.
@@ -45,17 +45,17 @@ class hooks {
 
         $url = new url('/blocks/quickcards/view.php');
         $title = get_string('mycards', 'block_quickcards');
-        $pixicon = new pix_icon('i/grades', $title);
 
         if (class_exists(link::class)) {
-            $item = new link($url, $title, null, $pixicon);
+            $item = new link($url, $title, null, new pix_icon('i/grades', $title));
             $hook->add_menu_item($item);
         } else if (method_exists($hook, 'add_navitem')) {
             $navitem = new \stdClass();
             $navitem->itemtype = 'link';
             $navitem->url = $url;
             $navitem->title = $title;
-            $navitem->pixicon = $pixicon;
+            $navitem->titleidentifier = 'mycards,block_quickcards';
+            $navitem->pix = 'i/grades';
             $hook->add_navitem($navitem);
         }
     }

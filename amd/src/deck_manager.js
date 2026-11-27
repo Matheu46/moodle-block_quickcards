@@ -519,6 +519,57 @@ export const init = () => {
     };
 
     /**
+     * Extract leading Anki 2.1.54+ file header directives (#separator, #html, #deck, #tags column, etc.).
+     *
+     * @param {string[]} lines Non-empty trimmed lines.
+     * @return {{separator: ?string, deck: ?string, dataLines: string[]}}
+     */
+    const extractAnkiHeaders = (lines) => {
+        const sepMap = {
+            tab: '\t',
+            comma: ',',
+            semicolon: ';',
+            pipe: '|',
+            colon: ':',
+            space: ' ',
+        };
+        const directiveRegex = new RegExp(
+            '^#(separator|html|deck|notetype|tags|tags column|columns|' +
+            'guid column|deck column|notetype column)\\s*:(.*)$',
+            'i'
+        );
+        let separator = null;
+        let deck = null;
+        let idx = 0;
+
+        while (idx < lines.length) {
+            const match = lines[idx].match(directiveRegex);
+            if (!match) {
+                break;
+            }
+            const key = match[1].toLowerCase();
+            const val = match[2].trim();
+            if (key === 'separator' && val !== '') {
+                const valLower = val.toLowerCase();
+                if (Object.prototype.hasOwnProperty.call(sepMap, valLower)) {
+                    separator = sepMap[valLower];
+                } else if (val.length === 1) {
+                    separator = val;
+                }
+            } else if (key === 'deck' && val !== '') {
+                deck = val;
+            }
+            idx++;
+        }
+
+        return {
+            separator: separator,
+            deck: deck,
+            dataLines: lines.slice(idx),
+        };
+    };
+
+    /**
      * Live preview and validation for CSV import.
      */
     const updateCsvPreview = () => {
@@ -526,7 +577,6 @@ export const init = () => {
             return;
         }
         const raw = importCsvTextArea.value.trim();
-        const deckName = importCsvNameInput ? importCsvNameInput.value.trim() : '';
 
         if (!raw) {
             if (importCsvCountBadge) {
@@ -536,7 +586,20 @@ export const init = () => {
             return;
         }
 
-        const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+        const allLines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+        const anki = extractAnkiHeaders(allLines);
+        const lines = anki.dataLines;
+
+        const isExisting = (currentImportTargetDeckId > 0) || (
+            document.getElementById('quickcards-import-csv-dest-existing') &&
+            document.getElementById('quickcards-import-csv-dest-existing').checked
+        );
+
+        if (!isExisting && anki.deck && importCsvNameInput && importCsvNameInput.value.trim() === '') {
+            importCsvNameInput.value = anki.deck;
+        }
+        const deckName = importCsvNameInput ? importCsvNameInput.value.trim() : '';
+
         const mode = importCsvDelimiterSelect ? importCsvDelimiterSelect.value : 'auto';
         let sep = ',';
         if (mode === 'tab') {
@@ -545,6 +608,8 @@ export const init = () => {
             sep = ';';
         } else if (mode === 'comma') {
             sep = ',';
+        } else if (anki.separator) {
+            sep = anki.separator;
         } else if (lines.length > 0) {
             if (lines[0].includes('\t')) {
                 sep = '\t';
@@ -587,11 +652,6 @@ export const init = () => {
                 importCsvCountBadge.classList.add('d-none');
             }
         }
-
-        const isExisting = (currentImportTargetDeckId > 0) || (
-            document.getElementById('quickcards-import-csv-dest-existing') &&
-            document.getElementById('quickcards-import-csv-dest-existing').checked
-        );
 
         if (isExisting) {
             const destDeckId = getImportTargetDeckId('csv');
@@ -1247,11 +1307,18 @@ export const init = () => {
             }
             const reader = new FileReader();
             reader.onload = (event) => {
+                const fileText = event.target.result || '';
                 if (importCsvTextArea) {
-                    importCsvTextArea.value = event.target.result;
+                    importCsvTextArea.value = fileText;
                 }
-                if (importCsvNameInput && importCsvNameInput.value.trim() === '') {
-                    importCsvNameInput.value = file.name.replace(/\.[^.]+$/, '');
+                const isExisting = (currentImportTargetDeckId > 0) || (
+                    document.getElementById('quickcards-import-csv-dest-existing') &&
+                    document.getElementById('quickcards-import-csv-dest-existing').checked
+                );
+                if (!isExisting && importCsvNameInput && importCsvNameInput.value.trim() === '') {
+                    const allLines = fileText.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+                    const anki = extractAnkiHeaders(allLines);
+                    importCsvNameInput.value = anki.deck || file.name.replace(/\.[^.]+$/, '');
                 }
                 updateCsvPreview();
             };

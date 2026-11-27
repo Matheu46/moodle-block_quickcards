@@ -794,4 +794,50 @@ final class export_import_test extends advanced_testcase {
         $rescsvblocked = import_csv::execute('CSV Unenrolled', "Q1\tA1", (int) $unenrolledcourse->id, 'tab');
         $this->assertEquals(0, (int) $DB->get_field('block_quickcards_decks', 'courseid', ['id' => $rescsvblocked['deckid']]));
     }
+
+    /**
+     * Test importing Anki 2.1.54+ files with #separator/#html/#deck/#tags headers into new and existing decks.
+     */
+    public function test_import_anki_headers_new_and_existing_deck(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $anki = "#separator:tab\n" .
+            "#html:true\n" .
+            "#deck:HSK 1 - Lição 8\n" .
+            "#tags column:3\n" .
+            "<div style=\"font-size:48px;\">想</div>\t<div>querer, desejar</div>\tHSK1\n" .
+            "<div style=\"font-size:48px;\">喝</div>\t<div>beber</div>\tHSK1\n" .
+            "<div style=\"font-size:48px;\">茶</div>\t<div>chá</div>\tHSK1\n";
+
+        // 1. Import as a new deck with delimiter='auto' and empty deckname (falls back to #deck header).
+        $resnew = import_csv::execute('', $anki, 0, 'auto');
+        $resnew = external_api::clean_returnvalue(import_csv::execute_returns(), $resnew);
+
+        $this->assertTrue($resnew['success']);
+        $this->assertEquals('HSK 1 - Lição 8', $resnew['deckname']);
+        $this->assertEquals(3, $resnew['cardscount']);
+
+        // 2. Import into an existing deck: #deck header is ignored, duplicates are skipped, new cards are appended.
+        $existing = create_deck::execute('My Chinese Deck', '', 0);
+        create_card::execute($existing['id'], '<div style="font-size:48px;">喝</div>', 'old answer');
+
+        $resexisting = import_csv::execute('', $anki, 0, 'auto', $existing['id'], 'skip');
+        $resexisting = external_api::clean_returnvalue(import_csv::execute_returns(), $resexisting);
+
+        $this->assertTrue($resexisting['success']);
+        $this->assertEquals($existing['id'], $resexisting['deckid']);
+        $this->assertEquals('My Chinese Deck', $resexisting['deckname']);
+        $this->assertEquals(2, $resexisting['cardscount']);
+        $this->assertEquals(1, $resexisting['skippedcount']);
+        $this->assertEquals(3, $DB->count_records('block_quickcards_cards', ['deckid' => $existing['id']]));
+
+        // 3. Verify legitimate cards starting with '#' are NOT skipped as headers.
+        $cprog = "#include <stdio.h>\tStandard I/O header\n#define MAX 100\tMacro constant\n";
+        $resc = import_csv::execute('C Basics', $cprog, 0, 'auto');
+        $this->assertEquals(2, $resc['cardscount']);
+    }
 }

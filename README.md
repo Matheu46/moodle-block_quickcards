@@ -42,9 +42,11 @@ QuickCards is a comprehensive spaced repetition flashcard plugin for Moodle 4.x 
     - **Allow**: Adds cards even if identical questions already exist.
 
 ### 🔒 Privacy & Security (GDPR Compliant)
-- Full implementation of Moodle's Privacy API (`core_privacy`).
-- Supports user data export (all decks, cards, and review records) and user data deletion.
-- Rigorous capability and ownership checks (`dml_missing_record_exception` on unauthorized access).
+- **Moodle Privacy API (`core_privacy`)**: Supports full user data export (decks, cards, and review records) and erasure.
+- **Access Control & Ownership**: Rigorous capability, cohort, and ownership checks (`dml_missing_record_exception` on unauthorized access), plus enrollment/visibility validation on deck-to-course associations to prevent private course name disclosure.
+- **XSS Defense-in-Depth**: Imported JSON and CSV content is sanitized via Moodle's `clean_text()` (HTMLPurifier) on input and rendered through `format_text()` on output, with whitelisted text formats.
+- **Safe Sharing & Exports**: CSV exports neutralize spreadsheet formula injection (`=`, `+`, `-`, `@`, `\t`, `\r`) per OWASP guidelines, and file downloads send `X-Content-Type-Options: nosniff`.
+- **Import DoS & Bounds Protection**: Enforces a 5 MB payload limit, a maximum of 2,000 cards per import, JSON nesting depth limits, and safe bounds clamping on imported SM-2 progress values.
 
 ---
 

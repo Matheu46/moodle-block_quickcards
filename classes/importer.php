@@ -392,13 +392,78 @@ class importer {
     }
 
     /**
+     * Extract leading Anki 2.1.54+ file header directives (#separator, #html, #deck, #tags column, etc.).
+     *
+     * Only leading directives before the first real data row are consumed so that legitimate cards
+     * starting with '#' (e.g. "#include <stdio.h>") are never skipped.
+     *
+     * @param string $normalized Normalized text content with \n line endings.
+     * @return array Associative array with keys 'separator' (?string), 'deck' (?string), and 'body' (string).
+     */
+    private static function extract_anki_headers(string $normalized): array {
+        $lines = explode("\n", $normalized);
+        $separator = null;
+        $deck = null;
+        $bodyindex = 0;
+        $total = count($lines);
+
+        $sepmap = [
+            'tab' => "\t",
+            'comma' => ',',
+            'semicolon' => ';',
+            'pipe' => '|',
+            'colon' => ':',
+            'space' => ' ',
+        ];
+
+        $directivepattern = '/^#(separator|html|deck|notetype|tags|tags column|columns|' .
+            'guid column|deck column|notetype column)\s*:(.*)$/i';
+
+        while ($bodyindex < $total) {
+            $trimmed = trim($lines[$bodyindex]);
+            if ($trimmed === '') {
+                $bodyindex++;
+                continue;
+            }
+            if (preg_match($directivepattern, $trimmed, $matches) === 1) {
+                $key = strtolower($matches[1]);
+                $val = trim($matches[2]);
+                if ($key === 'separator' && $val !== '') {
+                    $vallower = strtolower($val);
+                    if (isset($sepmap[$vallower])) {
+                        $separator = $sepmap[$vallower];
+                    } else if (strlen($val) === 1) {
+                        $separator = $val;
+                    }
+                } else if ($key === 'deck' && $val !== '') {
+                    $deck = $val;
+                }
+                $bodyindex++;
+                continue;
+            }
+            break;
+        }
+
+        return [
+            'separator' => $separator,
+            'deck' => $deck,
+            'body' => implode("\n", array_slice($lines, $bodyindex)),
+        ];
+    }
+
+    /**
      * Detect the best delimiter from a CSV/TSV text snippet.
      *
      * @param string $content Normalized CSV/TSV text.
      * @return string Single-character delimiter (\t, ;, or ,).
      */
     public static function detect_delimiter(string $content): string {
-        $lines = explode("\n", $content);
+        $headers = self::extract_anki_headers($content);
+        if (!empty($headers['separator'])) {
+            return $headers['separator'];
+        }
+
+        $lines = explode("\n", $headers['body']);
         foreach ($lines as $line) {
             $trimmed = trim($line);
             if ($trimmed === '') {
@@ -431,12 +496,15 @@ class importer {
         $normalized = preg_replace('/^\xEF\xBB\xBF/', '', $csvcontent);
         $normalized = str_replace(["\r\n", "\r"], "\n", (string) $normalized);
 
+        $headers = self::extract_anki_headers($normalized);
+        $body = $headers['body'];
+
         if ($delimiter === 'auto' || $delimiter === '') {
-            $delimiter = self::detect_delimiter($normalized);
+            $delimiter = !empty($headers['separator']) ? $headers['separator'] : self::detect_delimiter($body);
         }
 
         $handle = fopen('php://temp', 'r+');
-        fwrite($handle, $normalized);
+        fwrite($handle, $body);
         rewind($handle);
 
         $cards = [];
@@ -546,6 +614,18 @@ class importer {
                 $cardsbyquestion[$qnorm] = $ec;
             }
         } else {
+            if ($cleandeckname === '') {
+                $normalized = preg_replace('/^\xEF\xBB\xBF/', '', $csvcontent);
+                $normalized = str_replace(["\r\n", "\r"], "\n", (string) $normalized);
+                $headers = self::extract_anki_headers($normalized);
+                if (!empty($headers['deck'])) {
+                    $cleandeckname = \core_text::substr(
+                        clean_param(trim($headers['deck']), PARAM_TEXT),
+                        0,
+                        self::MAX_DECK_NAME_LENGTH
+                    );
+                }
+            }
             if ($cleandeckname === '') {
                 throw new moodle_exception('nodeckname', 'block_quickcards');
             }

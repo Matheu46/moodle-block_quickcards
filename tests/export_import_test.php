@@ -725,4 +725,36 @@ final class export_import_test extends advanced_testcase {
         $this->expectException(moodle_exception::class);
         importer::parse_csv_cards($csv, "\t");
     }
+
+    /**
+     * Test CSV export neutralizes potential spreadsheet formula injection payloads.
+     */
+    public function test_export_deck_csv_neutralizes_formula_injection(): void {
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $deck = create_deck::execute('Formula Safety Deck', '', 0);
+        create_card::execute($deck['id'], '=HYPERLINK("https://evil.example","Click")', '+1+1');
+        create_card::execute($deck['id'], '-2+3', '@SUM(A1:A2)');
+        create_card::execute($deck['id'], 'Normal Question', 'Normal Answer');
+
+        $csv = exporter::export_deck_csv($deck['id'], (int) $user->id);
+        $parsed = importer::parse_csv_cards($csv, ',');
+
+        $this->assertCount(3, $parsed);
+        $this->assertStringStartsWith("'", $parsed[0]['question']);
+        $this->assertStringStartsWith("'", $parsed[0]['answer']);
+        $this->assertStringStartsWith("'", $parsed[1]['question']);
+        $this->assertStringStartsWith("'", $parsed[1]['answer']);
+        $this->assertEquals('Normal Question', $parsed[2]['question']);
+        $this->assertEquals('Normal Answer', $parsed[2]['answer']);
+
+        // Direct helper edge cases: leading tab, carriage return, and whitespace before '='.
+        $this->assertEquals("'\t=cmd|' /C calc'!A0", exporter::sanitize_csv_cell("\t=cmd|' /C calc'!A0"));
+        $this->assertEquals("' =1+1", exporter::sanitize_csv_cell(' =1+1'));
+        $this->assertEquals('F = m * a', exporter::sanitize_csv_cell('F = m * a'));
+        $this->assertEquals('', exporter::sanitize_csv_cell(''));
+    }
 }

@@ -124,6 +124,28 @@ class exporter {
     }
 
     /**
+     * Neutralize potential spreadsheet formula injection in a CSV cell value.
+     *
+     * Cells starting with '=', '+', '-', '@', tab, or carriage return (including after leading
+     * whitespace) can be interpreted as executable formulas by Microsoft Excel or LibreOffice Calc.
+     * Prefixing with a single quote neutralizes formula evaluation per OWASP guidelines.
+     *
+     * @param string $value Raw cell text.
+     * @return string Safe cell text for CSV export.
+     */
+    public static function sanitize_csv_cell(string $value): string {
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/^[\t\r=+\-@]/', $value) === 1 || preg_match('/^\s+[=+\-@]/', $value) === 1) {
+            return "'" . $value;
+        }
+
+        return $value;
+    }
+
+    /**
      * Export a deck as a UTF-8 CSV string (compatible with Excel, Anki, and Quizlet).
      *
      * @param int $deckid Deck ID to export.
@@ -140,7 +162,16 @@ class exporter {
 
         fputcsv($handle, ['Question', 'Answer'], $delimiter, '"', '\\');
         foreach ($payload['cards'] as $card) {
-            fputcsv($handle, [$card['question'], $card['answer']], $delimiter, '"', '\\');
+            fputcsv(
+                $handle,
+                [
+                    self::sanitize_csv_cell($card['question']),
+                    self::sanitize_csv_cell($card['answer']),
+                ],
+                $delimiter,
+                '"',
+                '\\'
+            );
         }
 
         rewind($handle);

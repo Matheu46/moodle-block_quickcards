@@ -62,6 +62,7 @@ if ($format === 'csv') {
 \core\session\manager::write_close();
 
 header('Content-Type: ' . $contenttype);
+header('X-Content-Type-Options: nosniff');
 header('Content-Disposition: attachment; filename="' . $filename . '"');
 header('Content-Length: ' . strlen($content));
 header('Cache-Control: private, must-revalidate, pre-check=0, post-check=0, max-age=0');

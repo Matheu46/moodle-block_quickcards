@@ -76,10 +76,12 @@ class create_deck extends external_api {
         require_capability('block/quickcards:use', $context);
         \block_quickcards\manager::require_access();
 
+        $validatedcourseid = \block_quickcards\manager::validate_user_courseid((int) $params['courseid'], (int) $USER->id);
+
         $now = time();
         $record = (object) [
             'userid' => (int) $USER->id,
-            'courseid' => (int) $params['courseid'],
+            'courseid' => $validatedcourseid,
             'name' => $trimmedname,
             'description' => trim($params['description']),
             'timecreated' => $now,

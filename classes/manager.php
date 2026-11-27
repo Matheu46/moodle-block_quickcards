@@ -376,6 +376,49 @@ class manager {
     }
 
     /**
+     * Validate that a user is allowed to associate a deck with the given course ID.
+     *
+     * Prevents information disclosure of private or unenrolled course names via arbitrary course IDs.
+     * Returns 0 (general deck) if the course ID is invalid, is the site course, or the user
+     * is not enrolled / allowed to view the course.
+     *
+     * @param int $courseid Requested course ID.
+     * @param int $userid User ID.
+     * @return int Validated course ID, or 0 for a general deck.
+     */
+    public static function validate_user_courseid(int $courseid, int $userid): int {
+        global $DB;
+
+        if ($courseid <= 0 || $courseid === (int) SITEID) {
+            return 0;
+        }
+
+        $course = $DB->get_record('course', ['id' => $courseid], 'id, visible');
+        if (!$course) {
+            return 0;
+        }
+
+        $coursecontext = \context_course::instance($courseid, IGNORE_MISSING);
+        if (!$coursecontext) {
+            return 0;
+        }
+
+        if (is_siteadmin($userid)) {
+            return $courseid;
+        }
+
+        if (!$course->visible && !has_capability('moodle/course:viewhiddencourses', $coursecontext, $userid)) {
+            return 0;
+        }
+
+        if (is_enrolled($coursecontext, $userid, '', true) || is_viewing($coursecontext, $userid)) {
+            return $courseid;
+        }
+
+        return 0;
+    }
+
+    /**
      * Get cards due for review for study session, randomized for effective active recall.
      *
      * @param int $userid User ID.

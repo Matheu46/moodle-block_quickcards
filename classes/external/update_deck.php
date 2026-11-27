@@ -81,9 +81,11 @@ class update_deck extends external_api {
 
         $deck = $DB->get_record('block_quickcards_decks', ['id' => $params['id'], 'userid' => $USER->id], '*', MUST_EXIST);
 
+        $validatedcourseid = \block_quickcards\manager::validate_user_courseid((int) $params['courseid'], (int) $USER->id);
+
         $deck->name = $trimmedname;
         $deck->description = trim($params['description']);
-        $deck->courseid = (int) $params['courseid'];
+        $deck->courseid = $validatedcourseid;
         $deck->timemodified = time();
 
         $DB->update_record('block_quickcards_decks', $deck);

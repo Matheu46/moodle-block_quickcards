@@ -757,4 +757,41 @@ final class export_import_test extends advanced_testcase {
         $this->assertEquals('F = m * a', exporter::sanitize_csv_cell('F = m * a'));
         $this->assertEquals('', exporter::sanitize_csv_cell(''));
     }
+
+    /**
+     * Test JSON and CSV imports validate courseid against user enrollment.
+     */
+    public function test_import_validates_courseid(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $enrolledcourse = $this->getDataGenerator()->create_course(['visible' => 1]);
+        $unenrolledcourse = $this->getDataGenerator()->create_course(['visible' => 1]);
+        $this->getDataGenerator()->enrol_user($user->id, $enrolledcourse->id, 'student');
+
+        $this->setUser($user);
+
+        $json = json_encode([
+            'format' => exporter::FORMAT_IDENTIFIER,
+            'version' => exporter::FORMAT_VERSION,
+            'deck' => ['name' => 'JSON Course Test'],
+            'cards' => [['question' => 'Q1', 'answer' => 'A1']],
+        ]);
+
+        // Unenrolled courseid is neutralized to 0 in JSON import.
+        $resjson = import_deck::execute($json, (int) $unenrolledcourse->id, false);
+        $this->assertEquals(0, (int) $DB->get_field('block_quickcards_decks', 'courseid', ['id' => $resjson['deckid']]));
+
+        // Enrolled courseid is preserved in CSV import.
+        $rescsvok = import_csv::execute('CSV Enrolled', "Q1\tA1", (int) $enrolledcourse->id, 'tab');
+        $this->assertEquals(
+            (int) $enrolledcourse->id,
+            (int) $DB->get_field('block_quickcards_decks', 'courseid', ['id' => $rescsvok['deckid']])
+        );
+
+        // Unenrolled courseid is neutralized to 0 in CSV import.
+        $rescsvblocked = import_csv::execute('CSV Unenrolled', "Q1\tA1", (int) $unenrolledcourse->id, 'tab');
+        $this->assertEquals(0, (int) $DB->get_field('block_quickcards_decks', 'courseid', ['id' => $rescsvblocked['deckid']]));
+    }
 }

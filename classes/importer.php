@@ -242,10 +242,11 @@ class importer {
             }
             $rawdesc = is_string($data['deck']['description'] ?? null) ? $data['deck']['description'] : '';
             $deckdescription = self::sanitize_content($rawdesc, FORMAT_HTML);
+            $validatedcourseid = manager::validate_user_courseid($courseid, $userid);
 
             $newdeck = (object) [
                 'userid' => $userid,
-                'courseid' => $courseid,
+                'courseid' => $validatedcourseid,
                 'name' => $deckname,
                 'description' => $deckdescription,
                 'timecreated' => $now,
@@ -549,9 +550,11 @@ class importer {
                 throw new moodle_exception('nodeckname', 'block_quickcards');
             }
 
+            $validatedcourseid = manager::validate_user_courseid($courseid, $userid);
+
             $newdeck = (object) [
                 'userid' => $userid,
-                'courseid' => $courseid,
+                'courseid' => $validatedcourseid,
                 'name' => $cleandeckname,
                 'description' => self::sanitize_content($description, FORMAT_HTML),
                 'timecreated' => $now,

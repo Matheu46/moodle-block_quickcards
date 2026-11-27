@@ -488,4 +488,50 @@ final class externallib_test extends advanced_testcase {
         $this->expectExceptionMessage(get_string('accessrestricted', 'block_quickcards'));
         create_deck::execute('Blocked Deck', '', 0);
     }
+
+    /**
+     * Test that courseid association is restricted to accessible enrolled courses (prevents course enumeration).
+     */
+    public function test_courseid_validation_prevents_unenrolled_and_hidden_course_disclosure(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $enrolledcourse = $this->getDataGenerator()->create_course(['fullname' => 'My Enrolled Course', 'visible' => 1]);
+        $privatecourse = $this->getDataGenerator()->create_course(['fullname' => 'Secret Unenrolled Course', 'visible' => 1]);
+        $hiddencourse = $this->getDataGenerator()->create_course(['fullname' => 'Hidden Course', 'visible' => 0]);
+
+        $this->getDataGenerator()->enrol_user($user->id, $enrolledcourse->id, 'student');
+        $this->getDataGenerator()->enrol_user($user->id, $hiddencourse->id, 'student');
+
+        $this->setUser($user);
+
+        // Enrolled visible course is accepted.
+        $res1 = create_deck::execute('Valid Course Deck', '', (int) $enrolledcourse->id);
+        $this->assertEquals((int) $enrolledcourse->id, (int) $res1['courseid']);
+
+        // Unenrolled course is neutralized to 0 (no course name leak).
+        $res2 = create_deck::execute('Probing Unenrolled', '', (int) $privatecourse->id);
+        $this->assertEquals(0, (int) $res2['courseid']);
+        $decks = \block_quickcards\manager::get_user_decks((int) $user->id);
+        foreach ($decks as $d) {
+            $this->assertNotEquals('Secret Unenrolled Course', $d['coursename']);
+        }
+
+        // Hidden course (student cannot view hidden courses) is neutralized to 0.
+        $res3 = create_deck::execute('Probing Hidden', '', (int) $hiddencourse->id);
+        $this->assertEquals(0, (int) $res3['courseid']);
+
+        // SITEID and non-existent course IDs are neutralized to 0.
+        $res4 = create_deck::execute('Probing Site', '', (int) SITEID);
+        $this->assertEquals(0, (int) $res4['courseid']);
+
+        $res5 = create_deck::execute('Probing Missing', '', 999999);
+        $this->assertEquals(0, (int) $res5['courseid']);
+
+        // Update deck also enforces courseid validation.
+        $updated = update_deck::execute($res1['id'], 'Updated Deck', '', (int) $privatecourse->id);
+        $this->assertEquals(0, (int) $updated['courseid']);
+        $this->assertEquals(0, (int) $DB->get_field('block_quickcards_decks', 'courseid', ['id' => $res1['id']]));
+    }
 }

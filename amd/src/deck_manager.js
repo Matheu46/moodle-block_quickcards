@@ -754,54 +754,40 @@ export const init = () => {
     };
 
     /**
-     * Live preview and validation for CSV import.
+     * Resolve the delimiter character for CSV preview.
+     *
+     * @param {string} mode Delimiter mode ('auto', 'tab', 'semicolon', 'comma').
+     * @param {?string} ankiSeparator Separator extracted from Anki headers, if any.
+     * @param {string[]} lines Data lines (without Anki headers).
+     * @return {string} Single-character delimiter.
      */
-    const updateCsvPreview = () => {
-        if (!importCsvTextArea || !importCsvSubmitBtn) {
-            return;
+    const resolveCsvDelimiter = (mode, ankiSeparator, lines) => {
+        const modeMap = {tab: '\t', semicolon: ';', comma: ','};
+        if (Object.prototype.hasOwnProperty.call(modeMap, mode)) {
+            return modeMap[mode];
         }
-        const raw = importCsvTextArea.value.trim();
-
-        if (!raw) {
-            if (importCsvCountBadge) {
-                importCsvCountBadge.classList.add('d-none');
-            }
-            importCsvSubmitBtn.disabled = true;
-            return;
+        if (ankiSeparator) {
+            return ankiSeparator;
         }
-
-        const allLines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
-        const anki = extractAnkiHeaders(allLines);
-        const lines = anki.dataLines;
-
-        const isExisting = (currentImportTargetDeckId > 0) || (
-            document.getElementById('quickcards-import-csv-dest-existing') &&
-            document.getElementById('quickcards-import-csv-dest-existing').checked
-        );
-
-        if (!isExisting && anki.deck && importCsvNameInput && importCsvNameInput.value.trim() === '') {
-            importCsvNameInput.value = anki.deck;
-        }
-        const deckName = importCsvNameInput ? importCsvNameInput.value.trim() : '';
-
-        const mode = importCsvDelimiterSelect ? importCsvDelimiterSelect.value : 'auto';
-        let sep = ',';
-        if (mode === 'tab') {
-            sep = '\t';
-        } else if (mode === 'semicolon') {
-            sep = ';';
-        } else if (mode === 'comma') {
-            sep = ',';
-        } else if (anki.separator) {
-            sep = anki.separator;
-        } else if (lines.length > 0) {
+        if (lines.length > 0) {
             if (lines[0].includes('\t')) {
-                sep = '\t';
-            } else if (lines[0].includes(';')) {
-                sep = ';';
+                return '\t';
+            }
+            if (lines[0].includes(';')) {
+                return ';';
             }
         }
+        return ',';
+    };
 
+    /**
+     * Count valid card rows in CSV/TSV data lines.
+     *
+     * @param {string[]} lines Data lines (without Anki headers).
+     * @param {string} sep Delimiter character.
+     * @return {number} Number of valid cards detected.
+     */
+    const countValidCsvCards = (lines, sep) => {
         const headerQuestions = ['question', 'front', 'term', 'pergunta', 'frente', 'termo'];
         const headerAnswers = ['answer', 'back', 'definition', 'resposta', 'verso', 'definicao', 'definição'];
         let count = 0;
@@ -822,24 +808,65 @@ export const init = () => {
             count++;
         });
 
-        if (importCsvCountBadge) {
-            if (count > 0) {
-                getString('csvcardsdetected', 'block_quickcards', count).then((label) => {
-                    importCsvCountBadge.textContent = label;
-                    importCsvCountBadge.classList.remove('d-none');
-                    return true;
-                }).catch(() => {
-                    importCsvCountBadge.textContent = `${count} cards`;
-                    importCsvCountBadge.classList.remove('d-none');
-                });
-            } else {
-                importCsvCountBadge.classList.add('d-none');
-            }
+        return count;
+    };
+
+    /**
+     * Update the live CSV card count badge.
+     *
+     * @param {number} count Number of valid cards detected.
+     */
+    const updateCsvCountBadge = (count) => {
+        if (!importCsvCountBadge) {
+            return;
+        }
+        if (count > 0) {
+            getString('csvcardsdetected', 'block_quickcards', count).then((label) => {
+                importCsvCountBadge.textContent = label;
+                importCsvCountBadge.classList.remove('d-none');
+                return true;
+            }).catch(() => {
+                importCsvCountBadge.textContent = `${count} cards`;
+                importCsvCountBadge.classList.remove('d-none');
+            });
+        } else {
+            importCsvCountBadge.classList.add('d-none');
+        }
+    };
+
+    /**
+     * Live preview and validation for CSV import.
+     */
+    const updateCsvPreview = () => {
+        if (!importCsvTextArea || !importCsvSubmitBtn) {
+            return;
+        }
+        const raw = importCsvTextArea.value.trim();
+        if (!raw) {
+            updateCsvCountBadge(0);
+            importCsvSubmitBtn.disabled = true;
+            return;
         }
 
+        const allLines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+        const anki = extractAnkiHeaders(allLines);
+        const lines = anki.dataLines;
+
+        const existingRadio = document.getElementById('quickcards-import-csv-dest-existing');
+        const isExisting = (currentImportTargetDeckId > 0) || Boolean(existingRadio && existingRadio.checked);
+
+        if (!isExisting && anki.deck && importCsvNameInput && importCsvNameInput.value.trim() === '') {
+            importCsvNameInput.value = anki.deck;
+        }
+        const deckName = importCsvNameInput ? importCsvNameInput.value.trim() : '';
+        const mode = importCsvDelimiterSelect ? importCsvDelimiterSelect.value : 'auto';
+        const sep = resolveCsvDelimiter(mode, anki.separator, lines);
+        const count = countValidCsvCards(lines, sep);
+
+        updateCsvCountBadge(count);
+
         if (isExisting) {
-            const destDeckId = getImportTargetDeckId('csv');
-            importCsvSubmitBtn.disabled = (count === 0 || !destDeckId);
+            importCsvSubmitBtn.disabled = (count === 0 || !getImportTargetDeckId('csv'));
         } else {
             importCsvSubmitBtn.disabled = (count === 0 || deckName === '');
         }

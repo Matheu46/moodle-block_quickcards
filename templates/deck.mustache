@@ -170,9 +170,10 @@
                             <input type="search"
                                    id="quickcards-search-cards"
                                    class="form-control border-start-0"
+                                   value="{{search}}"
                                    placeholder="{{#str}} searchcards, block_quickcards {{/str}}"
                                    aria-label="{{#str}} searchcards, block_quickcards {{/str}}">
-                            <button class="btn btn-outline-secondary d-none"
+                            <button class="btn btn-outline-secondary {{^hassearch}}d-none{{/hassearch}}"
                                     type="button"
                                     id="quickcards-clear-card-search"
                                     title="{{#str}} clearfilter, block_quickcards {{/str}}">
@@ -184,19 +185,19 @@
                     <!-- Status Filter Pills -->
                     <div class="col-12 col-md-6 col-lg-7 d-flex flex-wrap gap-1 justify-content-md-end align-items-center">
                         <div class="btn-group btn-group-sm" role="group" aria-label="{{#str}} filterstatus, block_quickcards {{/str}}">
-                            <button type="button" class="btn btn-outline-primary active" data-filter="all">
+                            <button type="button" class="btn btn-outline-primary {{#statusall}}active{{/statusall}}" data-filter="all">
                                 {{#str}} filterall, block_quickcards {{/str}}
                                 <span class="badge bg-secondary ms-1" id="filter-count-all">{{deck.totalcards}}</span>
                             </button>
-                            <button type="button" class="btn btn-outline-warning" data-filter="due">
+                            <button type="button" class="btn btn-outline-warning {{#statusdue}}active{{/statusdue}}" data-filter="due">
                                 <i class="fa fa-clock-o me-1" aria-hidden="true"></i>{{#str}} filterdue, block_quickcards {{/str}}
                                 <span class="badge bg-warning text-dark ms-1" id="filter-count-due">{{deck.duecount}}</span>
                             </button>
-                            <button type="button" class="btn btn-outline-info" data-filter="new">
+                            <button type="button" class="btn btn-outline-info {{#statusnew}}active{{/statusnew}}" data-filter="new">
                                 <i class="fa fa-star-o me-1" aria-hidden="true"></i>{{#str}} filternew, block_quickcards {{/str}}
                                 <span class="badge bg-info text-dark ms-1" id="filter-count-new">{{deck.newcount}}</span>
                             </button>
-                            <button type="button" class="btn btn-outline-success" data-filter="learned">
+                            <button type="button" class="btn btn-outline-success {{#statuslearned}}active{{/statuslearned}}" data-filter="learned">
                                 <i class="fa fa-check me-1" aria-hidden="true"></i>{{#str}} filterlearned, block_quickcards {{/str}}
                                 <span class="badge bg-success ms-1" id="filter-count-learned">{{deck.learnedcount}}</span>
                             </button>
@@ -207,16 +208,20 @@
                 <!-- Active Filter & Results Count bar -->
                 <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top small text-muted">
                     <span id="quickcards-cards-count-info">
-                        {{deck.totalcards}} {{#str}} cards, block_quickcards {{/str}}
+                        {{#showingcounttext}}{{showingcounttext}}{{/showingcounttext}}{{^showingcounttext}}{{deck.totalcards}} {{#str}} cards, block_quickcards {{/str}}{{/showingcounttext}}
                     </span>
-                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-none" id="quickcards-reset-filters-btn">
+                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none {{^isfiltered}}d-none{{/isfiltered}}" id="quickcards-reset-filters-btn">
                         <i class="fa fa-undo me-1" aria-hidden="true"></i>{{#str}} clearfilter, block_quickcards {{/str}}
                     </button>
                 </div>
             </div>
         </div>
 
-        <div class="row row-cols-1 row-cols-md-2 g-3" id="quickcards-cards-container">
+        <div class="row row-cols-1 row-cols-md-2 g-3"
+             id="quickcards-cards-container"
+             data-server-paginated="1"
+             data-base-url="{{deckbaseurl}}"
+             data-status="{{status}}">
             {{#deck.cards}}
                 <div class="col quickcards-card-item"
                      id="card-item-{{id}}"
@@ -285,8 +290,13 @@
             {{/deck.cards}}
         </div>
 
+        <!-- Pagination Bar -->
+        <div class="mt-4 d-flex justify-content-center {{^haspagingbar}}d-none{{/haspagingbar}}" id="quickcards-cards-pagination">
+            {{{pagingbar}}}
+        </div>
+
         <!-- Empty Search State -->
-        <div id="quickcards-no-search-results" class="card text-center py-5 border-dashed shadow-sm d-none mt-3">
+        <div id="quickcards-no-search-results" class="card text-center py-5 border-dashed shadow-sm {{#deck.hasfilteredcards}}d-none{{/deck.hasfilteredcards}} mt-3">
             <div class="card-body">
                 <div class="mb-3 text-muted">
                     <i class="fa fa-search fa-3x" aria-hidden="true"></i>

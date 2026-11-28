@@ -219,4 +219,80 @@ final class manager_test extends advanced_testcase {
         $this->assertTrue($deckwithcards['hascards']);
         $this->assertEquals(1, $deckwithcards['totalcards']);
     }
+
+    /**
+     * Test server-side pagination, status filtering, and search in get_deck_with_cards().
+     */
+    public function test_get_deck_with_cards_pagination_and_filters(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $now = time();
+        $deckid = $DB->insert_record('block_quickcards_decks', (object) [
+            'userid' => $user->id,
+            'name' => 'Paginated Deck',
+            'description' => '',
+            'courseid' => 0,
+            'timecreated' => $now,
+            'timemodified' => $now,
+        ]);
+
+        // Create 5 cards: 3 new/due, 2 learned (nextreview in future).
+        for ($i = 1; $i <= 5; $i++) {
+            $cardid = $DB->insert_record('block_quickcards_cards', (object) [
+                'deckid' => $deckid,
+                'userid' => $user->id,
+                'question' => ($i === 3) ? 'Special Mitochondria Question' : "Question {$i}",
+                'answer' => "Answer {$i}",
+                'timecreated' => $now,
+                'timemodified' => $now,
+            ]);
+            $islearned = ($i <= 2);
+            $DB->insert_record('block_quickcards_reviews', (object) [
+                'cardid' => $cardid,
+                'userid' => $user->id,
+                'easefactor' => 2.50,
+                'intervaldays' => $islearned ? 6 : 0,
+                'repetitions' => $islearned ? 2 : 0,
+                'nextreview' => $islearned ? ($now + 6 * DAYSECS) : $now,
+                'lastreview' => $islearned ? ($now - DAYSECS) : null,
+            ]);
+        }
+
+        // Page 0 with 2 per page: returns 2 cards, totalcards = 5, filteredcount = 5.
+        $page0 = manager::get_deck_with_cards((int) $deckid, (int) $user->id, 0, 2);
+        $this->assertCount(2, $page0['cards']);
+        $this->assertEquals(5, $page0['totalcards']);
+        $this->assertEquals(5, $page0['filteredcount']);
+        $this->assertEquals(3, $page0['duecount']);
+        $this->assertEquals(3, $page0['newcount']);
+        $this->assertEquals(2, $page0['learnedcount']);
+        $this->assertEquals(0, $page0['page']);
+
+        // Page 2 (last page) with 2 per page: returns 1 card.
+        $page2 = manager::get_deck_with_cards((int) $deckid, (int) $user->id, 2, 2);
+        $this->assertCount(1, $page2['cards']);
+        $this->assertEquals(2, $page2['page']);
+
+        // Out-of-bounds page (page 99) clamps back to last valid page (page 2).
+        $clamped = manager::get_deck_with_cards((int) $deckid, (int) $user->id, 99, 2);
+        $this->assertEquals(2, $clamped['page']);
+        $this->assertCount(1, $clamped['cards']);
+
+        // Filter by status = 'learned': returns only the 2 learned cards, while totalcards remains 5.
+        $learned = manager::get_deck_with_cards((int) $deckid, (int) $user->id, 0, 10, '', 'learned');
+        $this->assertEquals(5, $learned['totalcards']);
+        $this->assertEquals(2, $learned['filteredcount']);
+        $this->assertCount(2, $learned['cards']);
+
+        // Filter by search text (case-insensitive): finds only card 3.
+        $searched = manager::get_deck_with_cards((int) $deckid, (int) $user->id, 0, 10, 'mitochondria', 'all');
+        $this->assertEquals(5, $searched['totalcards']);
+        $this->assertEquals(1, $searched['filteredcount']);
+        $this->assertCount(1, $searched['cards']);
+        $this->assertStringContainsString('Mitochondria', $searched['cards'][0]['question']);
+    }
 }

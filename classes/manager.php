@@ -26,6 +26,9 @@ use stdClass;
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class manager {
+    /** @var int Default number of flashcards displayed per page on deck.php. */
+    public const CARDS_PER_PAGE = 24;
+
     /** @var array In-memory cache for cohort access checks within the current HTTP request. */
     private static array $cohortcache = [];
 
@@ -250,13 +253,24 @@ class manager {
     }
 
     /**
-     * Get a specific deck and its cards.
+     * Get a specific deck and its cards, optionally paginated and filtered server-side.
      *
      * @param int $deckid Deck ID.
      * @param int $userid User ID.
+     * @param int $page Zero-based page index (used when $perpage > 0).
+     * @param int $perpage Number of cards per page (0 returns all matching cards).
+     * @param string $search Optional search query matched against question and answer.
+     * @param string $status Optional status filter ('all', 'due', 'new', 'learned').
      * @return array|null Deck details or null if not found.
      */
-    public static function get_deck_with_cards(int $deckid, int $userid): ?array {
+    public static function get_deck_with_cards(
+        int $deckid,
+        int $userid,
+        int $page = 0,
+        int $perpage = 0,
+        string $search = '',
+        string $status = 'all'
+    ): ?array {
         global $DB;
 
         $deck = $DB->get_record('block_quickcards_decks', ['id' => $deckid, 'userid' => $userid]);
@@ -265,6 +279,92 @@ class manager {
         }
 
         $now = time();
+        $page = max(0, $page);
+        $perpage = max(0, $perpage);
+        $search = trim($search);
+        if (!in_array($status, ['all', 'due', 'new', 'learned'], true)) {
+            $status = 'all';
+        }
+
+        // 1. Aggregate overall deck counts in SQL (avoids loading all cards just for badges).
+        $countssql = "SELECT COUNT(c.id) AS totalcards,
+                             COALESCE(SUM(CASE WHEN r.nextreview IS NOT NULL AND r.nextreview <= :now1
+                                               THEN 1 ELSE 0 END), 0) AS duecount,
+                             COALESCE(SUM(CASE WHEN r.lastreview IS NULL OR COALESCE(r.repetitions, 0) = 0
+                                               THEN 1 ELSE 0 END), 0) AS newcount,
+                             COALESCE(SUM(CASE WHEN r.lastreview IS NOT NULL AND COALESCE(r.repetitions, 0) > 0
+                                               AND (r.nextreview IS NULL OR r.nextreview > :now2)
+                                               THEN 1 ELSE 0 END), 0) AS learnedcount
+                        FROM {block_quickcards_cards} c
+                   LEFT JOIN {block_quickcards_reviews} r ON r.cardid = c.id AND r.userid = :userid
+                       WHERE c.deckid = :deckid AND c.userid = :carduserid";
+        $counts = $DB->get_record_sql($countssql, [
+            'now1' => $now,
+            'now2' => $now,
+            'userid' => $userid,
+            'deckid' => $deckid,
+            'carduserid' => $userid,
+        ]);
+
+        $totalcards = (int) ($counts->totalcards ?? 0);
+        $duecount = (int) ($counts->duecount ?? 0);
+        $newcount = (int) ($counts->newcount ?? 0);
+        $learnedcount = (int) ($counts->learnedcount ?? 0);
+
+        // 2. Build filtered WHERE clause for search and status.
+        $where = ['c.deckid = :deckid', 'c.userid = :carduserid'];
+        $params = [
+            'userid' => $userid,
+            'deckid' => $deckid,
+            'carduserid' => $userid,
+        ];
+
+        if ($status === 'due') {
+            $where[] = 'r.nextreview IS NOT NULL AND r.nextreview <= :fnow';
+            $params['fnow'] = $now;
+        } else if ($status === 'new') {
+            $where[] = '(r.lastreview IS NULL OR COALESCE(r.repetitions, 0) = 0)';
+        } else if ($status === 'learned') {
+            $where[] = 'r.lastreview IS NOT NULL AND COALESCE(r.repetitions, 0) > 0 ' .
+                'AND (r.nextreview IS NULL OR r.nextreview > :fnow)';
+            $params['fnow'] = $now;
+        }
+
+        if ($search !== '') {
+            $likeq = $DB->sql_like('c.question', ':searchq', false);
+            $likea = $DB->sql_like('c.answer', ':searcha', false);
+            $where[] = "({$likeq} OR {$likea})";
+            $escaped = '%' . $DB->sql_like_escape($search) . '%';
+            $params['searchq'] = $escaped;
+            $params['searcha'] = $escaped;
+        }
+
+        $wheresql = implode(' AND ', $where);
+
+        // 3. Count filtered cards and clamp page index if out of bounds.
+        if ($search === '' && $status === 'all') {
+            $filteredcount = $totalcards;
+        } else {
+            $filteredcountsql = "SELECT COUNT(c.id)
+                                   FROM {block_quickcards_cards} c
+                              LEFT JOIN {block_quickcards_reviews} r ON r.cardid = c.id AND r.userid = :userid
+                                  WHERE {$wheresql}";
+            $filteredcount = (int) $DB->count_records_sql($filteredcountsql, $params);
+        }
+
+        $limitfrom = 0;
+        $limitnum = 0;
+        if ($perpage > 0) {
+            if ($filteredcount > 0 && ($page * $perpage) >= $filteredcount) {
+                $page = max(0, (int) floor(($filteredcount - 1) / $perpage));
+            } else if ($filteredcount === 0) {
+                $page = 0;
+            }
+            $limitfrom = $page * $perpage;
+            $limitnum = $perpage;
+        }
+
+        // 4. Fetch only the requested page of cards and run format_text() only on them.
         $sql = "SELECT c.*,
                        r.easefactor,
                        r.intervaldays,
@@ -273,33 +373,17 @@ class manager {
                        r.lastreview
                   FROM {block_quickcards_cards} c
              LEFT JOIN {block_quickcards_reviews} r ON r.cardid = c.id AND r.userid = :userid
-                 WHERE c.deckid = :deckid AND c.userid = :carduserid
+                 WHERE {$wheresql}
               ORDER BY c.id DESC";
 
-        $records = $DB->get_records_sql($sql, [
-            'userid' => $userid,
-            'deckid' => $deckid,
-            'carduserid' => $userid,
-        ]);
+        $records = $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
 
         $context = \context_system::instance();
         $cards = [];
-        $duecount = 0;
-        $newcount = 0;
-        $learnedcount = 0;
         foreach ($records as $card) {
             $isdue = (!empty($card->nextreview) && (int) $card->nextreview <= $now);
             $isnew = (empty($card->lastreview) || (int) ($card->repetitions ?? 0) === 0);
             $islearned = (!$isnew && !$isdue);
-            if ($isdue) {
-                $duecount++;
-            }
-            if ($isnew) {
-                $newcount++;
-            }
-            if ($islearned) {
-                $learnedcount++;
-            }
 
             $cards[] = [
                 'id' => (int) $card->id,
@@ -336,14 +420,19 @@ class manager {
             'courseid' => (int) $deck->courseid,
             'coursename' => $coursename,
             'hascourse' => !empty($coursename),
-            'totalcards' => count($cards),
+            'totalcards' => $totalcards,
             'duecount' => $duecount,
             'newcount' => $newcount,
             'learnedcount' => $learnedcount,
             'hasdue' => $duecount > 0,
             'hasnew' => $newcount > 0,
             'haslearned' => $learnedcount > 0,
-            'hascards' => count($cards) > 0,
+            'hascards' => $totalcards > 0,
+            'filteredcount' => $filteredcount,
+            'showncount' => count($cards),
+            'hasfilteredcards' => count($cards) > 0,
+            'page' => $page,
+            'perpage' => $perpage,
             'studyurl' => $studyurl->out(false),
             'cards' => $cards,
         ];

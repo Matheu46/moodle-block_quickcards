@@ -60,6 +60,190 @@ const setupCardFilters = () => {
         };
     }
 
+    const isServerPaginated = (cardsContainer.dataset.serverPaginated === '1');
+    if (isServerPaginated) {
+        const baseUrl = cardsContainer.dataset.baseUrl || window.location.pathname;
+        let currentQuery = searchInput ? searchInput.value.trim() : '';
+        let currentStatus = cardsContainer.dataset.status || 'all';
+        let debounceTimer = null;
+        let activeController = null;
+
+        const buildFilterUrl = (query, status, page = 0) => {
+            const url = new URL(baseUrl, window.location.origin);
+            if (query) {
+                url.searchParams.set('search', query);
+            }
+            if (status && status !== 'all') {
+                url.searchParams.set('status', status);
+            }
+            if (page > 0) {
+                url.searchParams.set('page', page.toString());
+            }
+            return url;
+        };
+
+        const loadFilteredView = (url, pushHistory = false) => {
+            if (activeController) {
+                activeController.abort();
+            }
+            activeController = new AbortController();
+            cardsContainer.style.opacity = '0.5';
+
+            window.fetch(url.toString(), {
+                credentials: 'same-origin',
+                signal: activeController.signal,
+            }).then((response) => {
+                if (!response.ok) {
+                    throw new Error('Failed to load cards');
+                }
+                return response.text();
+            }).then((html) => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const newContainer = doc.getElementById('quickcards-cards-container');
+                if (!newContainer) {
+                    window.location.href = url.toString();
+                    return true;
+                }
+
+                cardsContainer.innerHTML = newContainer.innerHTML;
+                cardsContainer.dataset.status = newContainer.dataset.status || 'all';
+                cardsContainer.style.opacity = '';
+                currentStatus = cardsContainer.dataset.status;
+
+                const newCountInfo = doc.getElementById('quickcards-cards-count-info');
+                if (countInfo && newCountInfo) {
+                    countInfo.textContent = newCountInfo.textContent;
+                }
+
+                const paginationEl = document.getElementById('quickcards-cards-pagination');
+                const newPaginationEl = doc.getElementById('quickcards-cards-pagination');
+                if (paginationEl && newPaginationEl) {
+                    paginationEl.innerHTML = newPaginationEl.innerHTML;
+                    paginationEl.classList.toggle('d-none', newPaginationEl.classList.contains('d-none'));
+                }
+
+                const newNoResults = doc.getElementById('quickcards-no-search-results');
+                if (noResultsEl && newNoResults) {
+                    noResultsEl.classList.toggle('d-none', newNoResults.classList.contains('d-none'));
+                }
+
+                const isFiltered = (currentQuery !== '' || currentStatus !== 'all');
+                if (clearBtn) {
+                    clearBtn.classList.toggle('d-none', currentQuery === '');
+                }
+                if (resetFiltersBtn) {
+                    resetFiltersBtn.classList.toggle('d-none', !isFiltered);
+                }
+                filterBtns.forEach((btn) => {
+                    btn.classList.toggle('active', (btn.dataset.filter || 'all') === currentStatus);
+                });
+
+                if (pushHistory) {
+                    window.history.pushState({}, '', url.toString());
+                } else {
+                    window.history.replaceState({}, '', url.toString());
+                }
+                return true;
+            }).catch((err) => {
+                cardsContainer.style.opacity = '';
+                if (err && err.name === 'AbortError') {
+                    return;
+                }
+                window.location.href = url.toString();
+            });
+        };
+
+        const applyServerFilters = (query, status, pushHistory = false) => {
+            currentQuery = query;
+            currentStatus = status || 'all';
+            loadFilteredView(buildFilterUrl(currentQuery, currentStatus, 0), pushHistory);
+        };
+
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const val = e.target.value.trim();
+                if (clearBtn) {
+                    clearBtn.classList.toggle('d-none', val === '');
+                }
+                if (debounceTimer) {
+                    window.clearTimeout(debounceTimer);
+                }
+                debounceTimer = window.setTimeout(() => {
+                    if (val !== currentQuery) {
+                        applyServerFilters(val, currentStatus, false);
+                    }
+                }, 350);
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (debounceTimer) {
+                        window.clearTimeout(debounceTimer);
+                    }
+                    applyServerFilters(searchInput.value.trim(), currentStatus, false);
+                } else if (e.key === 'Escape') {
+                    if (debounceTimer) {
+                        window.clearTimeout(debounceTimer);
+                    }
+                    searchInput.value = '';
+                    applyServerFilters('', 'all', false);
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.focus();
+                }
+                applyServerFilters('', currentStatus, false);
+            });
+        }
+
+        filterBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const q = searchInput ? searchInput.value.trim() : '';
+                applyServerFilters(q, btn.dataset.filter || 'all', true);
+            });
+        });
+
+        const resetAll = () => {
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+            applyServerFilters('', 'all', true);
+        };
+
+        if (resetFiltersBtn) {
+            resetFiltersBtn.addEventListener('click', resetAll);
+        }
+        if (emptyClearBtn) {
+            emptyClearBtn.addEventListener('click', resetAll);
+        }
+
+        const paginationEl = document.getElementById('quickcards-cards-pagination');
+        if (paginationEl) {
+            paginationEl.addEventListener('click', (e) => {
+                const link = e.target.closest('a[href]');
+                if (!link) {
+                    return;
+                }
+                e.preventDefault();
+                loadFilteredView(new URL(link.href, window.location.origin), true);
+            });
+        }
+
+        return {
+            refresh: () => {
+                loadFilteredView(new URL(window.location.href), false);
+                return true;
+            },
+        };
+    }
+
     let currentQuery = '';
     let currentStatus = 'all';
 

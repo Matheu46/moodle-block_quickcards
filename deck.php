@@ -33,19 +33,39 @@ if (isguestuser()) {
 \block_quickcards\manager::require_access();
 
 $deckid = required_param('id', PARAM_INT);
+$page = max(0, optional_param('page', 0, PARAM_INT));
+$search = trim(optional_param('search', '', PARAM_TEXT));
+$status = optional_param('status', 'all', PARAM_ALPHA);
+if (!in_array($status, ['all', 'due', 'new', 'learned'], true)) {
+    $status = 'all';
+}
+$perpage = \block_quickcards\manager::CARDS_PER_PAGE;
 
 $context = \context_system::instance();
 require_capability('block/quickcards:use', $context);
 
-$url = new \moodle_url('/blocks/quickcards/deck.php', ['id' => $deckid]);
-$PAGE->set_url($url);
+$urlparams = ['id' => $deckid];
+if ($search !== '') {
+    $urlparams['search'] = $search;
+}
+if ($status !== 'all') {
+    $urlparams['status'] = $status;
+}
+$baseurl = new \moodle_url('/blocks/quickcards/deck.php', $urlparams);
+$pageurl = new \moodle_url($baseurl);
+if ($page > 0) {
+    $pageurl->param('page', $page);
+}
+
+$PAGE->set_url($pageurl);
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('standard');
 
-$deck = \block_quickcards\manager::get_deck_with_cards($deckid, $USER->id);
+$deck = \block_quickcards\manager::get_deck_with_cards($deckid, $USER->id, $page, $perpage, $search, $status);
 if (!$deck) {
     throw new \moodle_exception('invalidrecord', 'error');
 }
+$page = $deck['page'];
 
 $PAGE->set_title($deck['name'] . ' - ' . get_string('pluginname', 'block_quickcards'));
 $PAGE->set_heading($deck['name']);
@@ -59,6 +79,9 @@ $PAGE->navbar->add($deck['name']);
 
 $courses = \block_quickcards\manager::get_user_courses_options($USER->id);
 $otherdecks = \block_quickcards\manager::get_user_other_decks($USER->id, $deckid);
+$pagingbar = ($deck['filteredcount'] > $perpage)
+    ? $OUTPUT->paging_bar($deck['filteredcount'], $page, $perpage, $baseurl)
+    : '';
 
 $templatecontext = [
     'deck' => $deck,
@@ -73,6 +96,21 @@ $templatecontext = [
         ],
     ],
     'hasuserdecks' => true,
+    'pagingbar' => $pagingbar,
+    'haspagingbar' => !empty($pagingbar),
+    'search' => $search,
+    'hassearch' => ($search !== ''),
+    'status' => $status,
+    'isfiltered' => ($search !== '' || $status !== 'all'),
+    'statusall' => ($status === 'all'),
+    'statusdue' => ($status === 'due'),
+    'statusnew' => ($status === 'new'),
+    'statuslearned' => ($status === 'learned'),
+    'deckbaseurl' => (new \moodle_url('/blocks/quickcards/deck.php', ['id' => $deckid]))->out(false),
+    'showingcounttext' => get_string('showingcount', 'block_quickcards', [
+        'shown' => $deck['showncount'],
+        'total' => $deck['filteredcount'],
+    ]),
     'sesskey' => sesskey(),
 ];
 
